@@ -6,9 +6,9 @@
 // Forward declare SceneManager to avoid circular dependency if Scene.h includes SceneManager.h
 class SceneManager;
 
-class LoginScene : public Scene {
+class CharacterSelectionScene : public Scene {
 public:
-    LoginScene(sf::RenderWindow& window);
+    CharacterSelectionScene(sf::RenderWindow& window);
 
     void onEnter(SceneManager& manager) override;
     void handleEvent(const sf::Event& event, SceneManager& manager) override;
@@ -20,6 +20,4 @@ private:
     sf::RenderWindow& windowRef;
     AuthManager authManager;
     SceneManager* sceneManagerRef = nullptr; // Store a reference to the SceneManager
-
-    void handleLogin(const char* email, const char* password); // Removed SceneManager from params
 };

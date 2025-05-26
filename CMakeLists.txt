@@ -53,8 +53,12 @@ FetchContent_MakeAvailable(imgui-sfml)
 
 set(GAME_SOURCES
     src/main.cpp
+    src/auth/AuthManager.cpp
+    src/auth/clients/NakamaClient.cpp
     src/scenes/SceneManager.cpp
     src/scenes/LoginScene/LoginScene.cpp
+    src/scenes/CharacterScene/CharacterSelectionScene.cpp
+    src/scenes/CharacterScene/CharacterCreationScene.cpp
 )
 
 add_executable(main ${GAME_SOURCES})

@@ -2,6 +2,8 @@
 #include <SFML/Graphics.hpp>
 #include "scenes/SceneManager.h"
 #include "scenes/LoginScene/LoginScene.h"
+#include "scenes/CharacterScene/CharacterSelectionScene.h"
+#include "scenes/CharacterScene/CharacterCreationScene.h"
 
 int main() {
     sf::RenderWindow window(sf::VideoMode({ 800, 600 }, 24), "SFML Game with Scenes");
@@ -9,10 +11,12 @@ int main() {
 
     SceneManager sceneManager = SceneManager(window);
 
-    // Tworzenie i dodawanie scen
+    // Adding scenes to the scene manager
     sceneManager.addScene(SceneType::Login, std::make_unique<LoginScene>(window));
+    sceneManager.addScene(SceneType::CharacterSelection, std::make_unique<CharacterSelectionScene>(window));
+    sceneManager.addScene(SceneType::CharacterCreation, std::make_unique<CharacterCreationScene>(window));
 
-    // Ustawienie sceny początkowej
+    // Switch to the login scene
     sceneManager.switchTo(SceneType::Login);
 
     sf::Clock clock;
@@ -28,10 +32,10 @@ int main() {
                     window.close();
                 }
 
-                // Przekaż zdarzenia do menedżera scen, który przekaże je aktywnej scenie
+                // Pasing event to the scene manager
                 sceneManager.handleEvent(window, event);
 
-                // Jeśli okno zmieniło rozmiar, możemy poinformować menedżera lub bezpośrednio scenę
+                // Handling window resize
                 if (const auto* resized = event.getIf<sf::Event::Resized>()) {
                     sf::Vector2<float> size = {static_cast<float>(resized->size.x), static_cast<float>(resized->size.y)};
                     sf::FloatRect visibleArea({0, 0}, size);
@@ -40,10 +44,10 @@ int main() {
             }
         }
 
-        // Aktualizacja logiki
+        // Update the scene manager
         sceneManager.update(window, deltaTime);
 
-        // Renderowanie
+        // Render the scene manager
         window.clear(sf::Color(30, 30, 30)); // Ciemne tło
         sceneManager.render(window);
         window.display();

@@ -1,11 +1,42 @@
-# Ignore all files in the .vscode directory
-.vscode
+# Environment variables
+.env
+
+# CMake build files - common for C++ projects
+build/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cbp
+*.cmake
+
+# IDE-specific files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sdf
+
+# Compiled output
+*.o
+*.a
+*.so
+*.dll
+*.exe
+*.out
+
+# Other common ignores
+*.log
+*.tmp
+*.temp
+*~
+.DS_Store
+.cache
 
 # Ignore all files in the temp directory
 temp/
 
 # Ignore all files in the logs directory
 logs/
-
-# Ignore all files in the build directory
-build/

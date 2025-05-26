@@ -1,6 +1,5 @@
 #include <iostream>
 #include "imgui-SFML.h"
-#include "imgui.h"
 #include "SceneManager.h"
 
 SceneManager::SceneManager(sf::RenderWindow& window) : currentScene(nullptr), currentSceneType(SceneType::None), requestedSceneType(SceneType::None) {

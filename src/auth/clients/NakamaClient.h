@@ -1,0 +1,23 @@
+#pragma once
+#include <string>
+#include <nakama-cpp/Nakama.h>
+#include "../AuthClient.h"
+
+class NakamaClient : public AuthClient
+{
+    public:
+        NakamaClient();
+        ~NakamaClient() override;
+
+        Nakama::NClientPtr client;
+        Nakama::NSessionPtr session;
+
+        std::string getSessionToken() override;
+        void connect(const std::string& email, const std::string& password, LoginResultCallback callback) override;
+        void disconnect() override;
+        void tick();
+
+    private:
+        Nakama::NClientParameters parameters;
+        bool _isRunning = false;
+};
