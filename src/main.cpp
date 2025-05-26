@@ -4,17 +4,20 @@
 #include "scenes/LoginScene/LoginScene.h"
 #include "scenes/CharacterScene/CharacterSelectionScene.h"
 #include "scenes/CharacterScene/CharacterCreationScene.h"
+#include "auth/AuthManager.h"
 
 int main() {
     sf::RenderWindow window(sf::VideoMode({ 800, 600 }, 24), "SFML Game with Scenes");
     window.setFramerateLimit(60);
 
+    AuthManager authManager;
+
     SceneManager sceneManager = SceneManager(window);
 
     // Adding scenes to the scene manager
-    sceneManager.addScene(SceneType::Login, std::make_unique<LoginScene>(window));
-    sceneManager.addScene(SceneType::CharacterSelection, std::make_unique<CharacterSelectionScene>(window));
-    sceneManager.addScene(SceneType::CharacterCreation, std::make_unique<CharacterCreationScene>(window));
+    sceneManager.addScene(SceneType::Login, std::make_unique<LoginScene>(window, authManager));
+    sceneManager.addScene(SceneType::CharacterSelection, std::make_unique<CharacterSelectionScene>(window, authManager));
+    sceneManager.addScene(SceneType::CharacterCreation, std::make_unique<CharacterCreationScene>(window, authManager));
 
     // Switch to the login scene
     sceneManager.switchTo(SceneType::Login);
@@ -44,7 +47,7 @@ int main() {
             }
         }
 
-        // Update the scene manager
+        authManager.tick();
         sceneManager.update(window, deltaTime);
 
         // Render the scene manager

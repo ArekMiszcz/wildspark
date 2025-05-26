@@ -8,7 +8,7 @@ class SceneManager;
 
 class CharacterCreationScene : public Scene {
 public:
-    CharacterCreationScene(sf::RenderWindow& window);
+    CharacterCreationScene(sf::RenderWindow& window, AuthManager& authManager);
 
     void onEnter(SceneManager& manager) override;
     void handleEvent(const sf::Event& event, SceneManager& manager) override;
@@ -18,6 +18,6 @@ public:
 
 private:
     sf::RenderWindow& windowRef;
-    AuthManager authManager;
+    AuthManager& authManagerRef;
     SceneManager* sceneManagerRef = nullptr; // Store a reference to the SceneManager
 };

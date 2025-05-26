@@ -8,7 +8,7 @@ class SceneManager;
 
 class LoginScene : public Scene {
 public:
-    LoginScene(sf::RenderWindow& window);
+    LoginScene(sf::RenderWindow& window, AuthManager& authManager);
 
     void onEnter(SceneManager& manager) override;
     void handleEvent(const sf::Event& event, SceneManager& manager) override;
@@ -16,10 +16,12 @@ public:
     void render(sf::RenderTarget& target) override;
     void onExit(SceneManager& manager) override;
 
+    AuthManager& getAuthManager() { return authManagerRef; }
+
 private:
     sf::RenderWindow& windowRef;
-    AuthManager authManager;
-    SceneManager* sceneManagerRef = nullptr; // Store a reference to the SceneManager
+    AuthManager& authManagerRef;
+    SceneManager* sceneManagerRef = nullptr;
 
-    void handleLogin(const char* email, const char* password); // Removed SceneManager from params
+    void handleLogin(const char* email, const char* password);
 };

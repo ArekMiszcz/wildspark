@@ -8,7 +8,8 @@
 static std::string loginStatusMessage = "";
 static bool showLoginStatus = false;
 
-LoginScene::LoginScene(sf::RenderWindow& window) : windowRef(window) {
+LoginScene::LoginScene(sf::RenderWindow& window, AuthManager& authMgr) 
+    : windowRef(window), authManagerRef(authMgr), sceneManagerRef(nullptr) {
     std::cout << "Login Scene initialized" << std::endl;
 }
 
@@ -24,7 +25,7 @@ void LoginScene::handleEvent(const sf::Event& event, SceneManager& manager) {
 }
 
 void LoginScene::update(sf::Time deltaTime, SceneManager& manager) {
-    authManager.tick(); // Call tick for AuthManager (and underlying NakamaClient)
+    // authManagerRef.tick(); // Removed: AuthManager is now ticked globally in main.cpp
 }
 
 void LoginScene::render(sf::RenderTarget& target) {
@@ -98,7 +99,7 @@ void LoginScene::handleLogin(const char* email_cstr, const char* password_cstr) 
         }
     };
 
-    authManager.attemptLogin(email_str, password_str, loginCallback);
+    authManagerRef.attemptLogin(email_str, password_str, loginCallback); // Use authManagerRef
 }
 
 void LoginScene::onExit(SceneManager& manager) {

@@ -55,6 +55,7 @@ set(GAME_SOURCES
     src/main.cpp
     src/auth/AuthManager.cpp
     src/auth/clients/NakamaClient.cpp
+    src/account/AccountManager.cpp
     src/scenes/SceneManager.cpp
     src/scenes/LoginScene/LoginScene.cpp
     src/scenes/CharacterScene/CharacterSelectionScene.cpp
