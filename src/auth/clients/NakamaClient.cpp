@@ -1,6 +1,7 @@
 #include "NakamaClient.h"
 #include <nakama-cpp/NError.h>
 #include <nakama-cpp/Nakama.h>
+#include <nakama-cpp/realtime/NRtDefaultClientListener.h>
 #include <iostream>
 #include "../../vendor/dotenv-cpp/dotenv.h"
 
@@ -85,11 +86,26 @@ std::string NakamaClient::getSessionToken() {
     return "";
 }
 
+Nakama::NRtClientPtr NakamaClient::getRtClient() {
+    if (!rtClient) {
+        rtClient = client->createRtClient();
+        if (session) {
+            rtClient->connect(session, false);
+            std::cout << "NakamaClient: Real-time client connected with session token: " << session->getAuthToken() << std::endl;
+        }
+    }
+    return rtClient;
+}
+
 void NakamaClient::disconnect() {
     _isRunning = false;
     if (client && session) {
         client->disconnect();
         session = nullptr;
+        if (rtClient) {
+            rtClient->disconnect();
+            rtClient = nullptr;
+        }
     } else {
         std::cout << "NakamaClient: Not connected or no session to disconnect." << std::endl;
     }

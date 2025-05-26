@@ -30,16 +30,18 @@ void AuthManager::attemptLogin(const std::string& email, const std::string& pass
 }
 
 void AuthManager::tick() {
-    // Downcast needed if NakamaClient has specific tick, or AuthClient interface needs tick()
-    // For now, assuming NakamaClient specific tick logic not exposed via AuthClient interface directly
-    // If AuthClient had a virtual tick(), we could call authClient->tick()
-    // Casting to NakamaClient to call its specific tick method.
-    // This is safe if we are sure authClient is always a NakamaClient.
     NakamaClient* nakamaClientPtr = dynamic_cast<NakamaClient*>(authClient);
     if (nakamaClientPtr) {
         nakamaClientPtr->tick();
     } else if (authClient) {
         // If it's some other AuthClient that also needs ticking, handle here or add to interface.
-        // For now, only NakamaClient has a tick we know about.
     }
-} 
+}
+
+Nakama::NRtClientPtr AuthManager::getRtClient() {
+    NakamaClient* nakamaClientPtr = dynamic_cast<NakamaClient*>(authClient);
+    if (nakamaClientPtr) {
+        return nakamaClientPtr->getRtClient();
+    }
+    return nullptr; // Or handle error appropriately
+}

@@ -11,7 +11,9 @@ class NakamaClient : public AuthClient
 
         Nakama::NClientPtr client;
         Nakama::NSessionPtr session;
-
+        Nakama::NRtClientPtr rtClient;
+        Nakama::NRtClientPtr getRtClient();
+        
         std::string getSessionToken() override;
         void connect(const std::string& email, const std::string& password, LoginResultCallback callback) override;
         void disconnect() override;
