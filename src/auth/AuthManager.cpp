@@ -1,6 +1,5 @@
 #include "AuthManager.h"
 #include <iostream> // For std::cout, remove in real implementation
-#include <cstdlib> // For std::getenv
 #include "../vendor/dotenv-cpp/dotenv.h" // Include dotenv.h
 #include "clients/NakamaClient.h"
 

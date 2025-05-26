@@ -34,4 +34,34 @@ void AccountManager::listCharacters(
         errorCallback
     );
     std::cout << "AccountManager: Requesting character list from collection '" << characterCollection << "' for user " << nakamaSession->getUserId() << std::endl;
+}
+
+void AccountManager::saveCharacter(
+    const std::string& name,
+    const std::string& sex,
+    std::function<void(const Nakama::NStorageObjectAcks&)> successCallback,
+    std::function<void(const Nakama::NError&)> errorCallback
+) {
+    if (!nakamaClient || !nakamaSession) {
+        if (errorCallback) {
+            Nakama::NError error;
+            error.message = "Nakama client or session not available in AccountManager.";
+            error.code = Nakama::ErrorCode::Unknown;
+            errorCallback(error);
+        }
+        return;
+    }
+
+    std::string characterDataJson = "{\"name\":\"" + name + "\", \"sex\":\"" + sex + "\"}";
+
+    std::vector<Nakama::NStorageObjectWrite> objectsToWrite;
+    Nakama::NStorageObjectWrite newCharacter;
+    newCharacter.collection = characterCollection;
+    newCharacter.key = name;
+    newCharacter.value = characterDataJson;
+    objectsToWrite.push_back(newCharacter);
+
+    std::cout << "AccountManager: Attempting to save character '" << name << "' with data: " << characterDataJson << std::endl;
+
+    nakamaClient->writeStorageObjects(nakamaSession, objectsToWrite, successCallback, errorCallback);
 } 

@@ -1,7 +1,6 @@
 #include "NakamaClient.h"
 #include <nakama-cpp/NError.h>
 #include <nakama-cpp/Nakama.h>
-#include <nakama-cpp/realtime/NRtDefaultClientListener.h>
 #include <iostream>
 #include "../../vendor/dotenv-cpp/dotenv.h"
 

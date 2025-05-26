@@ -1,8 +1,6 @@
 #pragma once
 #include <string>
 #include "AuthClient.h" // Defines LoginResultCallback
-#include <functional>
-#include <nakama-cpp/Nakama.h> // For Nakama types
 
 class AuthManager {
 public:

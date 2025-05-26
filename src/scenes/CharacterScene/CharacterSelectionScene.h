@@ -3,7 +3,10 @@
 #include <SFML/Graphics.hpp>
 #include "../../auth/AuthManager.h"
 #include "../../account/AccountManager.h"
-#include <nakama-cpp/Nakama.h>
+#include <nakama-cpp/NTypes.h>
+#include <vector>
+#include <memory>
+#include <string>
 
 // Forward declare SceneManager to avoid circular dependency if Scene.h includes SceneManager.h
 class SceneManager;
