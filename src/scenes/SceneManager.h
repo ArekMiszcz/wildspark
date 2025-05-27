@@ -10,9 +10,11 @@ class SceneManager {
         ~SceneManager();
 
         void addScene(SceneType type, std::unique_ptr<Scene> scene);
+        void removeScene(SceneType type);
         void switchTo(SceneType type);
 
         SceneType getCurrentSceneType() const;
+        size_t getSceneCount() const;
 
         void handleEvent(sf::RenderWindow& window, const sf::Event& event);
         void update(sf::RenderWindow& window, sf::Time deltaTime);

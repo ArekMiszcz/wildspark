@@ -4,6 +4,7 @@ project(WildSpark LANGUAGES CXX)
 set(SFML_TAG 3.0.1)
 set(IMGUI_TAG v1.91.9)
 set(IMGUI_SFML_TAG v3.0)
+set(GOOGLE_TEST_TAG v1.17.0)
 
 set(SFML_STATIC_LIBRARIES ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -31,6 +32,13 @@ FetchContent_Declare(
   GIT_TAG ${IMGUI_SFML_TAG}
 )
 
+FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG ${GOOGLE_TEST_TAG} # Using the tag you defined
+    GIT_SHALLOW TRUE
+)
+
 # SFML
 FetchContent_MakeAvailable(SFML)
 
@@ -51,8 +59,11 @@ option(IMGUI_SFML_FIND_SFML "Use find_package to find SFML" OFF)
 option(IMGUI_SFML_IMGUI_DEMO "Build imgui_demo.cpp" ON)
 FetchContent_MakeAvailable(imgui-sfml)
 
-set(GAME_SOURCES
-    src/main.cpp
+# Google Test
+FetchContent_MakeAvailable(googletest)
+
+# Define sources for the game library (excluding main.cpp)
+set(LIB_SOURCES
     src/auth/AuthManager.cpp
     src/auth/clients/NakamaClient.cpp
     src/account/AccountManager.cpp
@@ -67,46 +78,47 @@ set(GAME_SOURCES
     src/input/InputManager.cpp
 )
 
-add_executable(main ${GAME_SOURCES})
-target_compile_features(main PRIVATE cxx_std_17)
-target_link_libraries(main PRIVATE SFML::Graphics SFML::Window SFML::System SFML::Network SFML::Audio nakama-sdk ImGui-SFML::ImGui-SFML)
+# Create a static library for the game logic
+add_library(WildSparkLib STATIC ${LIB_SOURCES})
 
-# Install step (optional)
-# install(TARGETS main DESTINATION bin) # Corrected target name
+# Set properties for WildSparkLib and link its dependencies
+target_compile_features(WildSparkLib PUBLIC cxx_std_17) # PUBLIC so consumers inherit C++17 requirement
+target_include_directories(WildSparkLib 
+    PUBLIC 
+        ${CMAKE_CURRENT_SOURCE_DIR}/src # Allows consumers to #include "header.h" from src
+)
+target_link_libraries(WildSparkLib 
+    PUBLIC # PUBLIC because headers of WildSparkLib might include headers from these dependencies
+        SFML::Graphics SFML::Window SFML::System SFML::Network SFML::Audio 
+        nakama-sdk 
+        ImGui-SFML::ImGui-SFML
+)
+set_property(TARGET WildSparkLib PROPERTY CXX_STANDARD 17)
+set_property(TARGET WildSparkLib PROPERTY CXX_STANDARD_REQUIRED ON)
+target_compile_definitions(WildSparkLib PRIVATE IMGUI_DISABLE_OBSOLETE_FUNCTIONS) # PRIVATE if only .cpp files use ImGui directly
 
-# Enable C++17
-set_property(TARGET main PROPERTY CXX_STANDARD 17) # Corrected target name
-set_property(TARGET main PROPERTY CXX_STANDARD_REQUIRED ON) # Corrected target name
+# Main game executable
+add_executable(wildspark_game src/main.cpp)
+target_link_libraries(wildspark_game PRIVATE WildSparkLib)
 
-# For ImGui-SFML
-target_compile_definitions(main PRIVATE IMGUI_DISABLE_OBSOLETE_FUNCTIONS) # Corrected target name
+# Set properties for the main executable
+target_compile_features(wildspark_game PRIVATE cxx_std_17)
+set_property(TARGET wildspark_game PROPERTY CXX_STANDARD 17)
+set_property(TARGET wildspark_game PROPERTY CXX_STANDARD_REQUIRED ON)
+# If src/main.cpp itself uses ImGui and needs IMGUI_DISABLE_OBSOLETE_FUNCTIONS, add it here.
+# It appears src/main.cpp does not use ImGui directly.
 
-# If you have a resources directory for fonts, images, etc.
-# file(COPY resources DESTINATION ${CMAKE_BINARY_DIR})
+# Enable testing and add tests subdirectory (should be at the end or after targets are defined)
+enable_testing()
+add_subdirectory(tests)
 
-# If SFML is installed in a custom location, you might need to set SFML_DIR
-# set(SFML_DIR /path/to/your/sfml/lib/cmake/SFML)
+# Install step (optional) - update target name if used
+# install(TARGETS wildspark_game DESTINATION bin)
 
-# Ensure Nakama include directories are available
-# target_include_directories(main PRIVATE ${NakamaCore_INCLUDE_DIRS}) # Corrected target name, Nakama SDK should handle this via target_link_libraries
-
-# Ensure ImGui include directories are available
-# target_include_directories(main PRIVATE ${IMGUI_INCLUDE_DIRS} ${IMGUI_SFML_INCLUDE_DIRS}) # Corrected target name, ImGui-SFML should handle this
-
-# Ensure SFML include directories are available (from FetchContent or find_package)
-# target_include_directories(main PRIVATE ${SFML_INCLUDE_DIR}) # Corrected target name, SFML::Graphics etc. should handle this
-
-# If you need to link against specific Nakama libraries (like NakamaClient, NakamaRealtimeClient)
-# target_link_libraries(wildspark PRIVATE NakamaClient NakamaRealtimeClient)
-
-# For Nakama, you might need to link against its dependencies if not handled by NakamaCore target
-# For example, if NakamaCore doesn't export its dependencies like Boost or OpenSSL
-
-# For debugging, print out some variables
+# For debugging, print out some variables (can be removed for cleaner output)
 message(STATUS "SFML_INCLUDE_DIR: ${SFML_INCLUDE_DIR}")
-message(STATUS "SFML_LIBRARY_DIR: ${SFML_LIBRARY_DIR}") # This might not be set by FetchContent directly
-message(STATUS "SFML_LIBRARIES: ${SFML_LIBRARIES}") # This might not be set by FetchContent directly
-message(STATUS "NakamaCore_INCLUDE_DIRS: ${NakamaCore_INCLUDE_DIRS}")
+message(STATUS "SFML_LIBRARIES: ${SFML_LIBRARIES}") # Note: SFML_LIBRARIES might not be set when using modern targets
+message(STATUS "NakamaCore_INCLUDE_DIRS: ${NakamaCore_INCLUDE_DIRS}") # Check if Nakama SDK provides NakamaCore_INCLUDE_DIRS or similar
 message(STATUS "NakamaCore_LIBRARIES: ${NakamaCore_LIBRARIES}")
-message(STATUS "IMGUI_INCLUDE_DIRS: ${IMGUI_INCLUDE_DIRS}")
-message(STATUS "IMGUI_SFML_INCLUDE_DIRS: ${IMGUI_SFML_INCLUDE_DIRS}")
+message(STATUS "IMGUI_INCLUDE_DIRS: ${IMGUI_INCLUDE_DIRS}") # From FetchContent imgui
+message(STATUS "IMGUI_SFML_INCLUDE_DIRS: ${IMGUI_SFML_INCLUDE_DIRS}") # From FetchContent imgui-sfml
