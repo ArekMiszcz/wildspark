@@ -11,7 +11,7 @@ class SceneManager {
 
         void addScene(SceneType type, std::unique_ptr<Scene> scene);
         void removeScene(SceneType type);
-        void switchTo(SceneType type);
+        virtual void switchTo(SceneType type); // MODIFIED - Made virtual
 
         SceneType getCurrentSceneType() const;
         size_t getSceneCount() const;

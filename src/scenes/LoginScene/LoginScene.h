@@ -17,11 +17,12 @@ public:
     void onExit(SceneManager& manager) override;
 
     AuthManager& getAuthManager() { return authManagerRef; }
+    void handleLogin(const char* email, const char* password);
 
 private:
     sf::RenderWindow& windowRef;
     AuthManager& authManagerRef;
     SceneManager* sceneManagerRef = nullptr;
-
-    void handleLogin(const char* email, const char* password);
+    std::string loginStatusMessage;
+    bool showLoginStatus;
 };

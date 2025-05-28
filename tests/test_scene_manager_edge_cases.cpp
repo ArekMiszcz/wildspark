@@ -31,7 +31,7 @@ public:
     // Instead, we'll hide them with our own implementations
     void display() {}
     void clear() {}
-    void close() {}
+    void close() override {}
     bool isOpen() const { return true; }
     std::optional<sf::Event> pollEvent() { return std::nullopt; }
 };

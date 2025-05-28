@@ -4,20 +4,14 @@
 #include "../SceneManager.h"
 #include "LoginScene.h"
 
-// Member to store login status/message for ImGui
-static std::string loginStatusMessage = "";
-static bool showLoginStatus = false;
-
 LoginScene::LoginScene(sf::RenderWindow& window, AuthManager& authMgr) 
-    : windowRef(window), authManagerRef(authMgr), sceneManagerRef(nullptr) {
-    std::cout << "Login Scene initialized" << std::endl;
+    : windowRef(window), authManagerRef(authMgr), sceneManagerRef(nullptr), loginStatusMessage(""), showLoginStatus(false) {
 }
 
 void LoginScene::onEnter(SceneManager& manager) {
-    std::cout << "Entering Login Scene" << std::endl;
     this->sceneManagerRef = &manager; // Store the SceneManager reference
-    showLoginStatus = false; // Reset status on entering scene
-    loginStatusMessage = "";
+    this->showLoginStatus = false; // Reset status on entering scene
+    this->loginStatusMessage = "";
 }
 
 void LoginScene::handleEvent(const sf::Event& event, SceneManager& manager) {
@@ -25,7 +19,7 @@ void LoginScene::handleEvent(const sf::Event& event, SceneManager& manager) {
 }
 
 void LoginScene::update(sf::Time deltaTime, SceneManager& manager) {
-    // authManagerRef.tick(); // Removed: AuthManager is now ticked globally in main.cpp
+    
 }
 
 void LoginScene::render(sf::RenderTarget& target) {
@@ -61,16 +55,15 @@ void LoginScene::render(sf::RenderTarget& target) {
     float buttonPosX = (ImGui::GetWindowWidth() - buttonWidth) * 0.5f;
     ImGui::SetCursorPosX(buttonPosX);
     if (ImGui::Button("Login", ImVec2(buttonWidth, 30))) {
-        std::cout << "Login button clicked!" << std::endl;
-        showLoginStatus = false; // Hide previous status message
-        loginStatusMessage = "Attempting login..."; // Indicate processing
+        this->showLoginStatus = false; // Hide previous status message
+        this->loginStatusMessage = "Attempting login..."; // Indicate processing
         this->handleLogin(email, password); // Call without SceneManager param
     }
 
     // Display login status message
-    if (showLoginStatus && !loginStatusMessage.empty()) {
+    if (this->showLoginStatus && !this->loginStatusMessage.empty()) {
         ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 10);
-        ImGui::TextWrapped("%s", loginStatusMessage.c_str());
+        ImGui::TextWrapped("%s", this->loginStatusMessage.c_str());
     }
 
     ImGui::End();
@@ -83,14 +76,12 @@ void LoginScene::handleLogin(const char* email_cstr, const char* password_cstr) 
 
     // Define the callback lambda
     auto loginCallback = [this](bool success, const std::string& message) { // Capture this to access sceneManagerRef
-        showLoginStatus = true;
-        loginStatusMessage = message;
+        this->showLoginStatus = true;
+        this->loginStatusMessage = message;
         if (success) {
-            std::cout << "LoginScene: Login successful via callback. Message: " << message << std::endl;
             if (this->sceneManagerRef) {
                 // Transition to the next scene using SceneManager
                 this->sceneManagerRef->switchTo(SceneType::CharacterSelection); 
-                std::cout << "Would transition to next scene now using stored sceneManagerRef." << std::endl;
             } else {
                 std::cerr << "LoginScene: sceneManagerRef is null in callback!" << std::endl;
             }
@@ -103,5 +94,4 @@ void LoginScene::handleLogin(const char* email_cstr, const char* password_cstr) 
 }
 
 void LoginScene::onExit(SceneManager& manager) {
-    std::cout << "Exiting Login Scene" << std::endl;
 }

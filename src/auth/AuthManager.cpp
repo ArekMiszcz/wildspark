@@ -1,16 +1,24 @@
 #include "AuthManager.h"
-#include <iostream> // For std::cout, remove in real implementation
+#include <iostream> // Keep for std::cerr, or replace with a dedicated logger
 #include "../vendor/dotenv-cpp/dotenv.h" // Include dotenv.h
 #include "clients/NakamaClient.h"
 
-AuthManager::AuthManager() {
-    // Load .env file. Assuming .env is in the parent directory of the executable (e.g., project root)
-    // Adjust the path "../.env" if your executable is in a different location relative to .env
-    dotenv::init("../../.env"); 
-    // Instantiate NakamaClient and assign to AuthClient pointer
-    // This relies on NakamaClient inheriting from AuthClient
-    authClient = new NakamaClient(); 
-    std::cout << "AuthManager initialized and .env loaded. NakamaClient created." << std::endl;
+AuthManager::AuthManager(ConstructionMode mode) : authClient(nullptr) {
+    if (mode == ConstructionMode::NORMAL) {
+        // Load .env file
+        // Note: dotenv::init() might throw an exception if .env is not found or is malformed.
+        // Depending on desired behavior, you might want to wrap this in a try-catch.
+        try {
+            dotenv::init(); // Correct function to load .env
+        } catch (const std::exception& e) {
+            std::cerr << "AuthManager: Exception during dotenv::init(): " << e.what() << std::endl;
+            // Decide if this is a fatal error for NORMAL mode or if the application can proceed
+            // For now, we'll log and continue, as NakamaClient might use default values or environment variables.
+        }
+        
+        // Initialize Nakama client
+        authClient = new NakamaClient(); // This line creates NakamaClient
+    }
 }
 
 AuthManager::~AuthManager() {
@@ -18,7 +26,6 @@ AuthManager::~AuthManager() {
 }
 
 void AuthManager::attemptLogin(const std::string& email, const std::string& password, LoginResultCallback callback) {
-    std::cout << "AuthManager: Attempting login for " << email << std::endl;
     if (authClient) {
         authClient->connect(email, password, callback); // Pass the callback along
     } else {

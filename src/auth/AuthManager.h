@@ -5,15 +5,14 @@
 
 class AuthManager {
 public:
-    AuthManager();
-    ~AuthManager();
+    enum class ConstructionMode { NORMAL, TESTING };
+    AuthManager(ConstructionMode mode = ConstructionMode::NORMAL);
+    virtual ~AuthManager();
+    AuthClient* authClient; 
 
-    AuthClient* authClient; // This will be a NakamaClient instance
-
-    // Changed signature to accept a callback
-    void attemptLogin(const std::string& email, const std::string& password, LoginResultCallback callback);
-    void tick(); // To pass through to NakamaClient
-    Nakama::NRtClientPtr getRtClient(); // <-- ADD THIS
+    virtual void attemptLogin(const std::string& email, const std::string& password, LoginResultCallback callback);
+    void tick(); 
+    Nakama::NRtClientPtr getRtClient();
 
 private:
     // Potentially store auth tokens, user data, etc. here

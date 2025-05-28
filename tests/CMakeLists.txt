@@ -8,6 +8,8 @@
 set(TEST_SOURCES
     test_scene_manager.cpp
     test_scene_manager_edge_cases.cpp
+    test_login_scene.cpp
+    test_login_scene_edge_cases.cpp
     # Add other test files here as you create them, e.g.:
     # test_auth_manager.cpp
     # test_input_manager.cpp
