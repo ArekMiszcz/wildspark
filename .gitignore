@@ -9,6 +9,7 @@ cmake_install.cmake
 Makefile
 *.cbp
 *.cmake
+.clangd
 
 # IDE-specific files
 .vscode/
