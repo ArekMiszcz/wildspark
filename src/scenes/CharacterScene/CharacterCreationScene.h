@@ -2,16 +2,17 @@
 #include "../Scene.h"
 #include <SFML/Graphics.hpp>
 #include "../../auth/AuthManager.h"
-#include "../../account/AccountManager.h"
 #include <nakama-cpp/NTypes.h>
-#include <memory>
 
 // Forward declare SceneManager to avoid circular dependency if Scene.h includes SceneManager.h
 class SceneManager;
+class AccountManager;
+
+class CharacterCreationSceneTest;
 
 class CharacterCreationScene : public Scene {
 public:
-    CharacterCreationScene(sf::RenderWindow& window, AuthManager& authManager);
+    CharacterCreationScene(sf::RenderWindow& window, AuthManager& authManager, AccountManager& accountManager); // Modified constructor
     ~CharacterCreationScene();
 
     void onEnter(SceneManager& manager) override;
@@ -20,15 +21,19 @@ public:
     void render(sf::RenderTarget& target) override;
     void onExit(SceneManager& manager) override;
 
+    // Public methods for UI actions
+    void saveCharacterAction();
+    void backToSelectionAction();
+
+    friend class CharacterCreationSceneTest;
+
 private:
-    void initializeAccountManager();
     void handleSaveCharacterSuccess(const Nakama::NStorageObjectAcks& acks);
     void handleSaveCharacterError(const Nakama::NError& error);
-    void attemptSaveCharacter();
 
     sf::RenderWindow& windowRef;
     AuthManager& authManagerRef;
-    std::unique_ptr<AccountManager> accountManager;
+    AccountManager& accountManagerRef;
     SceneManager* sceneManagerRef = nullptr;
 
     // UI state

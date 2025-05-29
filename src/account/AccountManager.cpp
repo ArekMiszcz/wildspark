@@ -1,8 +1,9 @@
 #include "AccountManager.h"
-#include <iostream> // For debugging, can be removed later
+#include "../auth/AuthManager.h"
+#include <iostream>
 
-AccountManager::AccountManager(Nakama::NClientPtr client, Nakama::NSessionPtr session)
-    : nakamaClient(client), nakamaSession(session) {
+AccountManager::AccountManager(AuthManager& authManager)
+    : authManagerRef(authManager) {
     std::cout << "AccountManager initialized." << std::endl;
 }
 
@@ -14,7 +15,10 @@ void AccountManager::listCharacters(
     std::function<void(Nakama::NStorageObjectListPtr)> successCallback,
     std::function<void(const Nakama::NError&)> errorCallback
 ) {
-    if (!nakamaClient || !nakamaSession) {
+    Nakama::NClientPtr client = authManagerRef.getNakamaClientPtr();
+    Nakama::NSessionPtr session = authManagerRef.getNakamaSessionPtr();
+
+    if (!client || !session) {
         if (errorCallback) {
             Nakama::NError error;
             error.message = "Nakama client or session not available in AccountManager.";
@@ -24,16 +28,16 @@ void AccountManager::listCharacters(
         return;
     }
 
-    nakamaClient->listUsersStorageObjects(
-        nakamaSession,
+    client->listUsersStorageObjects(
+        session,
         characterCollection,
-        nakamaSession->getUserId(), // List objects for the current user
+        session->getUserId(), // List objects for the current user
         100, // Limit for characters, adjust as needed
         "",  // Cursor for pagination, empty for the first page
         successCallback,
         errorCallback
     );
-    std::cout << "AccountManager: Requesting character list from collection '" << characterCollection << "' for user " << nakamaSession->getUserId() << std::endl;
+    std::cout << "AccountManager: Requesting character list from collection '" << characterCollection << "' for user " << session->getUserId() << std::endl;
 }
 
 void AccountManager::saveCharacter(
@@ -42,7 +46,10 @@ void AccountManager::saveCharacter(
     std::function<void(const Nakama::NStorageObjectAcks&)> successCallback,
     std::function<void(const Nakama::NError&)> errorCallback
 ) {
-    if (!nakamaClient || !nakamaSession) {
+    Nakama::NClientPtr client = authManagerRef.getNakamaClientPtr();
+    Nakama::NSessionPtr session = authManagerRef.getNakamaSessionPtr();
+
+    if (!client || !session) {
         if (errorCallback) {
             Nakama::NError error;
             error.message = "Nakama client or session not available in AccountManager.";
@@ -52,7 +59,7 @@ void AccountManager::saveCharacter(
         return;
     }
 
-    std::string characterDataJson = "{\"name\":\"" + name + "\", \"sex\":\"" + sex + "\"}";
+    std::string characterDataJson = "{\"name\":\"" + name + "\",\"sex\":\"" + sex + "\"}";
 
     std::vector<Nakama::NStorageObjectWrite> objectsToWrite;
     Nakama::NStorageObjectWrite newCharacter;
@@ -63,5 +70,5 @@ void AccountManager::saveCharacter(
 
     std::cout << "AccountManager: Attempting to save character '" << name << "' with data: " << characterDataJson << std::endl;
 
-    nakamaClient->writeStorageObjects(nakamaSession, objectsToWrite, successCallback, errorCallback);
-} 
+    client->writeStorageObjects(session, objectsToWrite, successCallback, errorCallback);
+}

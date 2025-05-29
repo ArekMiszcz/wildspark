@@ -1,48 +1,35 @@
 #include "CharacterCreationScene.h"
 #include <iostream>
+#include <cstring>  // For memset
 #include "imgui.h"
 #include "imgui-SFML.h"
 #include "../SceneManager.h"
-#include "../../auth/clients/NakamaClient.h" // For dynamic_cast for AccountManager init
+#include "../../account/AccountManager.h" // Corrected include path
 
-CharacterCreationScene::CharacterCreationScene(sf::RenderWindow& window, AuthManager& authMgr)
-    : windowRef(window), authManagerRef(authMgr), accountManager(nullptr), sceneManagerRef(nullptr), isSaving(false) {
+CharacterCreationScene::CharacterCreationScene(sf::RenderWindow& window, AuthManager& authMgr, AccountManager& accMgr)
+    : windowRef(window), authManagerRef(authMgr), accountManagerRef(accMgr), sceneManagerRef(nullptr), isSaving(false) {
     std::cout << "CharacterCreationScene initialized" << std::endl;
-    characterName[0] = '\0'; // Ensure buffer is initially empty
+    memset(characterName, 0, sizeof(characterName)); 
 }
 
 CharacterCreationScene::~CharacterCreationScene() {
     std::cout << "CharacterCreationScene destroyed" << std::endl;
-    // accountManager unique_ptr will auto-cleanup
-}
-
-void CharacterCreationScene::initializeAccountManager() {
-    NakamaClient* nakamaClientPtr = dynamic_cast<NakamaClient*>(authManagerRef.authClient);
-    if (nakamaClientPtr && nakamaClientPtr->client && nakamaClientPtr->session) {
-        accountManager = std::make_unique<AccountManager>(nakamaClientPtr->client, nakamaClientPtr->session);
-        std::cout << "AccountManager initialized successfully in CharacterCreationScene." << std::endl;
-    } else {
-        statusMessage = "Error: Nakama client/session not available. Cannot initialize AccountManager.";
-        std::cerr << statusMessage << std::endl;
-    }
+    // accountManagerRef is a reference, no cleanup needed here
 }
 
 void CharacterCreationScene::onEnter(SceneManager& manager) {
-    std::cout << "Entering CharacterCreationScene" << std::endl;
-    this->sceneManagerRef = &manager;
-    initializeAccountManager();
-    characterName[0] = '\0'; // Clear name field on enter
-    selectedSexIndex = 0;
-    statusMessage = "Create your character:";
+    sceneManagerRef = &manager;
+    statusMessage = "";
     isSaving = false;
+    memset(characterName, 0, sizeof(characterName));
+    selectedSexIndex = 0;
+    std::cout << "Entering CharacterCreationScene" << std::endl;
 }
 
-void CharacterCreationScene::attemptSaveCharacter() {
-    if (!accountManager) {
-        statusMessage = "Error: AccountManager not ready.";
-        return;
-    }
-    if (std::string(characterName).empty()) {
+void CharacterCreationScene::saveCharacterAction() {
+    if (isSaving) return;
+
+    if (characterName[0] == '\0') { 
         statusMessage = "Character name cannot be empty.";
         return;
     }
@@ -52,7 +39,7 @@ void CharacterCreationScene::attemptSaveCharacter() {
     std::string nameStr(characterName);
     std::string sexStr(sexOptions[selectedSexIndex]);
 
-    accountManager->saveCharacter(nameStr, sexStr,
+    accountManagerRef.saveCharacter(nameStr, sexStr,
         [this](const Nakama::NStorageObjectAcks& acks) {
             this->handleSaveCharacterSuccess(acks);
         },
@@ -60,6 +47,12 @@ void CharacterCreationScene::attemptSaveCharacter() {
             this->handleSaveCharacterError(error);
         }
     );
+}
+
+void CharacterCreationScene::backToSelectionAction() {
+    if (sceneManagerRef) {
+        sceneManagerRef->switchTo(SceneType::CharacterSelection);
+    }
 }
 
 void CharacterCreationScene::handleSaveCharacterSuccess(const Nakama::NStorageObjectAcks& acks) {
@@ -113,13 +106,11 @@ void CharacterCreationScene::render(sf::RenderTarget& target) {
         }
 
         if (ImGui::Button("Save Character")) {
-            attemptSaveCharacter();
+            saveCharacterAction();
         }
         ImGui::SameLine();
         if (ImGui::Button("Back to Selection")) {
-            if (sceneManagerRef) {
-                sceneManagerRef->switchTo(SceneType::CharacterSelection);
-            }
+            backToSelectionAction();
         }
     }
 
@@ -128,5 +119,4 @@ void CharacterCreationScene::render(sf::RenderTarget& target) {
 
 void CharacterCreationScene::onExit(SceneManager& manager) {
     std::cout << "Exiting CharacterCreationScene" << std::endl;
-    accountManager.reset(); // Clean up AccountManager
 }

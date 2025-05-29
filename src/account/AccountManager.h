@@ -6,19 +6,23 @@
 #include <functional>
 #include <string>
 
+// Forward declare AuthManager to avoid circular dependency if AuthManager.h includes AccountManager.h
+class AuthManager;
+
 class AccountManager {
 public:
-    AccountManager(Nakama::NClientPtr client, Nakama::NSessionPtr session);
-    ~AccountManager();
+    // Constructor now takes a reference to AuthManager
+    AccountManager(AuthManager& authManager);
+    virtual ~AccountManager(); // Ensure virtual destructor
 
     // Method to list characters (storage objects)
-    void listCharacters(
+    virtual void listCharacters(
         std::function<void(Nakama::NStorageObjectListPtr)> successCallback,
         std::function<void(const Nakama::NError&)> errorCallback
     );
 
     // Method to save a new character
-    void saveCharacter(
+    virtual void saveCharacter(
         const std::string& name,
         const std::string& sex,
         std::function<void(const Nakama::NStorageObjectAcks&)> successCallback,
@@ -29,7 +33,7 @@ public:
     // e.g., getAccountDetails, updateAccount, etc.
 
 private:
-    Nakama::NClientPtr nakamaClient;
-    Nakama::NSessionPtr nakamaSession;
+    // Store a reference to AuthManager
+    AuthManager& authManagerRef;
     const std::string characterCollection = "characters"; // Define collection name
-}; 
+};

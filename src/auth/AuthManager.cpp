@@ -22,12 +22,12 @@ AuthManager::AuthManager(ConstructionMode mode) : authClient(nullptr) {
 }
 
 AuthManager::~AuthManager() {
-    delete authClient; // This will call NakamaClient's destructor
+    delete authClient;
 }
 
 void AuthManager::attemptLogin(const std::string& email, const std::string& password, LoginResultCallback callback) {
     if (authClient) {
-        authClient->connect(email, password, callback); // Pass the callback along
+        authClient->connect(email, password, callback);
     } else {
         std::cerr << "AuthManager: authClient is null!" << std::endl;
         if (callback) {
@@ -50,5 +50,21 @@ Nakama::NRtClientPtr AuthManager::getRtClient() {
     if (nakamaClientPtr) {
         return nakamaClientPtr->getRtClient();
     }
-    return nullptr; // Or handle error appropriately
+    return nullptr;
+}
+
+Nakama::NClientPtr AuthManager::getNakamaClientPtr() {
+    NakamaClient* nakamaClientPtr = dynamic_cast<NakamaClient*>(authClient);
+    if (nakamaClientPtr) {
+        return nakamaClientPtr->client;
+    }
+    return nullptr;
+}
+
+Nakama::NSessionPtr AuthManager::getNakamaSessionPtr() {
+    NakamaClient* nakamaClientPtr = dynamic_cast<NakamaClient*>(authClient);
+    if (nakamaClientPtr) {
+        return nakamaClientPtr->session;
+    }
+    return nullptr;
 }

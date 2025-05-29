@@ -11,8 +11,11 @@ public:
     AuthClient* authClient; 
 
     virtual void attemptLogin(const std::string& email, const std::string& password, LoginResultCallback callback);
-    void tick(); 
+    virtual void tick(); 
     Nakama::NRtClientPtr getRtClient();
+
+    Nakama::NClientPtr getNakamaClientPtr();
+    Nakama::NSessionPtr getNakamaSessionPtr();
 
 private:
     // Potentially store auth tokens, user data, etc. here

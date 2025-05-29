@@ -6,6 +6,7 @@
 #include "scenes/CharacterScene/CharacterCreationScene.h"
 #include "scenes/GameScene/GameScene.h"
 #include "auth/AuthManager.h"
+#include "account/AccountManager.h" // Added for AccountManager
 #include "input/InputManager.h" // Include InputManager
 
 int main() {
@@ -15,13 +16,14 @@ int main() {
     AuthManager authManager;
     InputManager inputManager; // Create an InputManager instance
 
+    AccountManager accountManager(authManager);
+
     SceneManager sceneManager = SceneManager(window);
 
     // Adding scenes to the scene manager
     sceneManager.addScene(SceneType::Login, std::make_unique<LoginScene>(window, authManager));
-    sceneManager.addScene(SceneType::CharacterSelection, std::make_unique<CharacterSelectionScene>(window, authManager));
-    sceneManager.addScene(SceneType::CharacterCreation, std::make_unique<CharacterCreationScene>(window, authManager));
-    // Pass inputManager to GameScene constructor
+    sceneManager.addScene(SceneType::CharacterSelection, std::make_unique<CharacterSelectionScene>(window, authManager, accountManager));
+    sceneManager.addScene(SceneType::CharacterCreation, std::make_unique<CharacterCreationScene>(window, authManager, accountManager)); 
     sceneManager.addScene(SceneType::Game, std::make_unique<GameScene>(window, authManager, inputManager)); 
 
     // Switch to the login scene
@@ -40,10 +42,6 @@ int main() {
                     window.close();
                 }
 
-                // Pass event to the scene manager (which will pass to the current scene)
-                // Also pass to InputManager directly if it needs to process events globally
-                // or if scenes don't handle all input types directly.
-                // For now, assuming SceneManager/current scene calls inputManager.handleEvent()
                 sceneManager.handleEvent(window, event); 
 
                 // Handling window resize
@@ -56,10 +54,10 @@ int main() {
         }
 
         sceneManager.update(window, deltaTime);
-        authManager.tick(); // It's usually fine to tick auth manager after scene updates
+        authManager.tick();
 
         // Render the scene manager
-        window.clear(sf::Color(30, 30, 30)); // Ciemne tło
+        window.clear(sf::Color(30, 30, 30));
         sceneManager.render(window);
         
         // Update InputManager after all game logic and rendering for the current frame
