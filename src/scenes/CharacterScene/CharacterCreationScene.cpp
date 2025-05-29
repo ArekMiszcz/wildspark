@@ -1,6 +1,7 @@
 #include "CharacterCreationScene.h"
 #include <iostream>
 #include <cstring>  // For memset
+#include <algorithm> // Required for std::all_of
 #include "imgui.h"
 #include "imgui-SFML.h"
 #include "../SceneManager.h"
@@ -29,14 +30,29 @@ void CharacterCreationScene::onEnter(SceneManager& manager) {
 void CharacterCreationScene::saveCharacterAction() {
     if (isSaving) return;
 
-    if (characterName[0] == '\0') { 
-        statusMessage = "Character name cannot be empty.";
+    std::string nameStr(characterName);
+    // Trim whitespace from the beginning and end of the name
+    nameStr.erase(0, nameStr.find_first_not_of(" \t\n\r\f\v"));
+    nameStr.erase(nameStr.find_last_not_of(" \t\n\r\f\v") + 1);
+
+    if (nameStr.empty()) {
+        statusMessage = "Character name cannot be empty or only spaces.";
+        return;
+    }
+    // Check if the original characterName (before trimming) was just spaces
+    // and if the trimmed version is now empty.
+    // This handles the case where the input was "   "
+    // and we want to prevent saving.
+    std::string originalNameStr(characterName);
+    if (nameStr.empty() && std::all_of(originalNameStr.begin(), originalNameStr.end(), ::isspace)) {
+        statusMessage = "Character name cannot consist only of spaces.";
         return;
     }
 
+
     isSaving = true;
     statusMessage = "Saving character...";
-    std::string nameStr(characterName);
+    // Use the trimmed name for saving
     std::string sexStr(sexOptions[selectedSexIndex]);
 
     accountManagerRef.saveCharacter(nameStr, sexStr,

@@ -12,12 +12,13 @@ set(TEST_SOURCES
     test_login_scene_edge_cases.cpp
     test_character_selection_scene.cpp
     test_character_selection_scene_edge_cases.cpp
-    test_character_creation_scene.cpp # Added new test file
+    test_character_creation_scene.cpp
+    test_character_creation_scene_edge_cases.cpp
     # Add mock implementations
-    mocks/MockAuthManager.h # Though .h are usually not added, if they contain template mocks or specific definitions needed for compilation directly
+    mocks/MockAuthManager.h
     mocks/MockRenderWindow.h
     mocks/MockSceneManager.h
-    mocks/MockAccountManager.h # Added new mock file
+    mocks/MockAccountManager.h 
     # Add other test files here as you create them, e.g.:
     # test_auth_manager.cpp
     # test_input_manager.cpp

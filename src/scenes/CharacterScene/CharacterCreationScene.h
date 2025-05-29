@@ -9,6 +9,7 @@ class SceneManager;
 class AccountManager;
 
 class CharacterCreationSceneTest;
+class CharacterCreationSceneEdgeCasesTest;
 
 class CharacterCreationScene : public Scene {
 public:
@@ -26,6 +27,7 @@ public:
     void backToSelectionAction();
 
     friend class CharacterCreationSceneTest;
+    friend class CharacterCreationSceneEdgeCasesTest;
 
 private:
     void handleSaveCharacterSuccess(const Nakama::NStorageObjectAcks& acks);
