@@ -5,6 +5,7 @@ set(SFML_TAG 3.0.1)
 set(IMGUI_TAG v1.91.9)
 set(IMGUI_SFML_TAG v3.0)
 set(GOOGLE_TEST_TAG v1.17.0)
+set(NLOHMANN_JSON_TAG v3.11.3) # Added nlohmann/json tag
 
 set(SFML_STATIC_LIBRARIES ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -39,6 +40,15 @@ FetchContent_Declare(
     GIT_SHALLOW TRUE
 )
 
+FetchContent_Declare(
+    nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG ${NLOHMANN_JSON_TAG}
+    GIT_SHALLOW ON
+    EXCLUDE_FROM_ALL
+    SYSTEM
+)
+
 # SFML
 FetchContent_MakeAvailable(SFML)
 
@@ -61,12 +71,15 @@ FetchContent_MakeAvailable(imgui-sfml)
 
 # Google Test
 FetchContent_MakeAvailable(googletest)
+# nlohmann/json (header-only, but MakeAvailable helps with include paths)
+FetchContent_MakeAvailable(nlohmann_json)
 
 # Define sources for the game library (excluding main.cpp)
 set(LIB_SOURCES
     src/auth/AuthManager.cpp
     src/auth/clients/NakamaClient.cpp
     src/account/AccountManager.cpp
+    src/networking/Networking.cpp
     src/scenes/SceneManager.cpp
     src/scenes/LoginScene/LoginScene.cpp
     src/scenes/CharacterScene/CharacterSelectionScene.cpp
@@ -74,6 +87,7 @@ set(LIB_SOURCES
     src/scenes/GameScene/GameScene.cpp
     src/world/WorldMap.cpp
     src/world/WorldRenderer.cpp
+    src/world/entities/Player.cpp # Added Player.cpp
     src/graphics/Camera.cpp
     src/input/InputManager.cpp
 )
@@ -92,6 +106,7 @@ target_link_libraries(WildSparkLib
         SFML::Graphics SFML::Window SFML::System SFML::Network SFML::Audio 
         nakama-sdk 
         ImGui-SFML::ImGui-SFML
+        nlohmann_json::nlohmann_json # Added nlohmann_json
 )
 set_property(TARGET WildSparkLib PROPERTY CXX_STANDARD 17)
 set_property(TARGET WildSparkLib PROPERTY CXX_STANDARD_REQUIRED ON)

@@ -14,11 +14,14 @@ set(TEST_SOURCES
     test_character_selection_scene_edge_cases.cpp
     test_character_creation_scene.cpp
     test_character_creation_scene_edge_cases.cpp
+    test_player.cpp
+    test_networking.cpp # Added new test file
     # Add mock implementations
     mocks/MockAuthManager.h
     mocks/MockRenderWindow.h
     mocks/MockSceneManager.h
     mocks/MockAccountManager.h 
+    mocks/MockNClientFull.h
     # Add other test files here as you create them, e.g.:
     # test_auth_manager.cpp
     # test_input_manager.cpp

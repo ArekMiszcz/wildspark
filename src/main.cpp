@@ -24,7 +24,7 @@ int main() {
     sceneManager.addScene(SceneType::Login, std::make_unique<LoginScene>(window, authManager));
     sceneManager.addScene(SceneType::CharacterSelection, std::make_unique<CharacterSelectionScene>(window, authManager, accountManager));
     sceneManager.addScene(SceneType::CharacterCreation, std::make_unique<CharacterCreationScene>(window, authManager, accountManager)); 
-    sceneManager.addScene(SceneType::Game, std::make_unique<GameScene>(window, authManager, inputManager)); 
+    sceneManager.addScene(SceneType::Game, std::make_unique<GameScene>(window, authManager, inputManager, authManager.getNakamaClientPtr(), authManager.getNakamaSessionPtr())); 
 
     // Switch to the login scene
     sceneManager.switchTo(SceneType::Login);
