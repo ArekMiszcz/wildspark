@@ -1,0 +1,24 @@
+# .clang-format
+BasedOnStyle: Google
+SortIncludes: true
+IncludeBlocks: Regroup
+
+# Define the order of include categories. Lower priority numbers come first.
+IncludeCategories:
+  # 1. C system headers (e.g., <stdio.h>)
+  - Regex:           '^<[a-zA-Z0-9/]*\.h>$'
+    Priority:        1
+
+  # 2. C++ system headers (e.g., <iostream>, <vector>)
+  #    This matches headers with no file extension.
+  - Regex:           '^<[a-zA-Z0-9_]+>$'
+    Priority:        2
+
+  # 3. Main header for the current file (e.g., "my_class.h")
+  #    This matches any header included with quotes.
+  - Regex:           '^".*"'
+    Priority:        3
+
+  # 4. Other library headers (e.g., <gtest/gtest.h>, <boost/optional.hpp>)
+  - Regex:           '^<.*>'
+    Priority:        4

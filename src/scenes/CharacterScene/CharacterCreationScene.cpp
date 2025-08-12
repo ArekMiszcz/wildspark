@@ -1,21 +1,23 @@
+// Copyright 2025 WildSpark Authors
+
 #include "CharacterCreationScene.h"
 #include <iostream>
-#include <cstring>  // For memset
-#include <algorithm> // Required for std::all_of
+#include <cstring>
+#include <algorithm>
+#include <string>
 #include "imgui.h"
 #include "imgui-SFML.h"
 #include "../SceneManager.h"
-#include "../../account/AccountManager.h" // Corrected include path
+#include "../../account/AccountManager.h"
 
 CharacterCreationScene::CharacterCreationScene(sf::RenderWindow& window, AuthManager& authMgr, AccountManager& accMgr)
     : windowRef(window), authManagerRef(authMgr), accountManagerRef(accMgr), sceneManagerRef(nullptr), isSaving(false) {
     std::cout << "CharacterCreationScene initialized" << std::endl;
-    memset(characterName, 0, sizeof(characterName)); 
+    memset(characterName, 0, sizeof(characterName));
 }
 
 CharacterCreationScene::~CharacterCreationScene() {
     std::cout << "CharacterCreationScene destroyed" << std::endl;
-    // accountManagerRef is a reference, no cleanup needed here
 }
 
 void CharacterCreationScene::onEnter(SceneManager& manager) {
@@ -31,7 +33,6 @@ void CharacterCreationScene::saveCharacterAction() {
     if (isSaving) return;
 
     std::string nameStr(characterName);
-    // Trim whitespace from the beginning and end of the name
     nameStr.erase(0, nameStr.find_first_not_of(" \t\n\r\f\v"));
     nameStr.erase(nameStr.find_last_not_of(" \t\n\r\f\v") + 1);
 
@@ -39,20 +40,16 @@ void CharacterCreationScene::saveCharacterAction() {
         statusMessage = "Character name cannot be empty or only spaces.";
         return;
     }
-    // Check if the original characterName (before trimming) was just spaces
-    // and if the trimmed version is now empty.
-    // This handles the case where the input was "   "
-    // and we want to prevent saving.
+
     std::string originalNameStr(characterName);
     if (nameStr.empty() && std::all_of(originalNameStr.begin(), originalNameStr.end(), ::isspace)) {
         statusMessage = "Character name cannot consist only of spaces.";
         return;
     }
 
-
     isSaving = true;
     statusMessage = "Saving character...";
-    // Use the trimmed name for saving
+
     std::string sexStr(sexOptions[selectedSexIndex]);
 
     accountManagerRef.saveCharacter(nameStr, sexStr,
@@ -61,8 +58,7 @@ void CharacterCreationScene::saveCharacterAction() {
         },
         [this](const Nakama::NError& error) {
             this->handleSaveCharacterError(error);
-        }
-    );
+        });
 }
 
 void CharacterCreationScene::backToSelectionAction() {

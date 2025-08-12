@@ -1,23 +1,20 @@
+// Copyright 2025 WildSpark Authors
+
 #include "AuthManager.h"
-#include <iostream> // Keep for std::cerr, or replace with a dedicated logger
-#include "../vendor/dotenv-cpp/dotenv.h" // Include dotenv.h
+#include <iostream>
+#include <string>
 #include "clients/NakamaClient.h"
+#include "../vendor/dotenv-cpp/dotenv.h"
 
 AuthManager::AuthManager(ConstructionMode mode) : authClient(nullptr) {
     if (mode == ConstructionMode::NORMAL) {
-        // Load .env file
-        // Note: dotenv::init() might throw an exception if .env is not found or is malformed.
-        // Depending on desired behavior, you might want to wrap this in a try-catch.
         try {
-            dotenv::init(); // Correct function to load .env
+            dotenv::init();
         } catch (const std::exception& e) {
             std::cerr << "AuthManager: Exception during dotenv::init(): " << e.what() << std::endl;
-            // Decide if this is a fatal error for NORMAL mode or if the application can proceed
-            // For now, we'll log and continue, as NakamaClient might use default values or environment variables.
         }
-        
-        // Initialize Nakama client
-        authClient = new NakamaClient(); // This line creates NakamaClient
+
+        authClient = new NakamaClient();
     }
 }
 

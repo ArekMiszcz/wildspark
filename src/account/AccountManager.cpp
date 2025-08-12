@@ -1,6 +1,10 @@
+// Copyright 2025 WildSpark Authors
+
+#include <iostream>
+#include <string>
+#include <vector>
 #include "AccountManager.h"
 #include "../auth/AuthManager.h"
-#include <iostream>
 
 AccountManager::AccountManager(AuthManager& authManager)
     : authManagerRef(authManager) {
@@ -22,7 +26,7 @@ void AccountManager::listCharacters(
         if (errorCallback) {
             Nakama::NError error;
             error.message = "Nakama client or session not available in AccountManager.";
-            error.code = Nakama::ErrorCode::Unknown; // Or a more specific error code
+            error.code = Nakama::ErrorCode::Unknown;
             errorCallback(error);
         }
         return;
@@ -31,13 +35,16 @@ void AccountManager::listCharacters(
     client->listUsersStorageObjects(
         session,
         characterCollection,
-        session->getUserId(), // List objects for the current user
-        100, // Limit for characters, adjust as needed
-        "",  // Cursor for pagination, empty for the first page
+        session->getUserId(),
+        100,
+        "",
         successCallback,
-        errorCallback
-    );
-    std::cout << "AccountManager: Requesting character list from collection '" << characterCollection << "' for user " << session->getUserId() << std::endl;
+        errorCallback);
+
+    std::cout << "AccountManager: Requesting character list from collection '"
+              << characterCollection
+              << "' for user " << session->getUserId()
+              << std::endl;
 }
 
 void AccountManager::saveCharacter(
@@ -68,7 +75,8 @@ void AccountManager::saveCharacter(
     newCharacter.value = characterDataJson;
     objectsToWrite.push_back(newCharacter);
 
-    std::cout << "AccountManager: Attempting to save character '" << name << "' with data: " << characterDataJson << std::endl;
+    std::cout << "AccountManager: Attempting to save character '" << name
+              << "' with data: " << characterDataJson << std::endl;
 
     client->writeStorageObjects(session, objectsToWrite, successCallback, errorCallback);
 }

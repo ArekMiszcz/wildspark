@@ -1,6 +1,8 @@
-\
+// Copyright 2025 WildSpark Authors
+
 #include "InputManager.h"
-#include <variant> // Required for std::get_if
+#include <string>
+#include <variant>
 
 InputManager::InputManager() {}
 

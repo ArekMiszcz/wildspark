@@ -127,6 +127,35 @@ set_property(TARGET wildspark_game PROPERTY CXX_STANDARD_REQUIRED ON)
 enable_testing()
 add_subdirectory(tests)
 
+# Enable optional cpplint target
+option(ENABLE_CPPLINT "Enable cpplint linting target" ON)
+if(ENABLE_CPPLINT)
+    find_package(Python3 COMPONENTS Interpreter)
+    if(Python3_Interpreter_FOUND)
+        # Collect headers (sources already in LIB_SOURCES)
+        file(GLOB_RECURSE PROJECT_HEADERS CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.h)
+        # Also lint test sources
+        file(GLOB_RECURSE TEST_HEADERS CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.h)
+        file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp)
+        set(CPPLINT_FILES ${LIB_SOURCES} ${PROJECT_HEADERS} ${TEST_SOURCES} ${TEST_HEADERS})
+        list(REMOVE_DUPLICATES CPPLINT_FILES)
+        add_custom_target(cpplint
+            COMMAND ${Python3_EXECUTABLE} -m cpplint --linelength=120 ${CPPLINT_FILES}
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            COMMENT "Running cpplint on project sources and tests"
+            VERBATIM
+        )
+        # Make main targets depend on cpplint so build fails on lint errors
+        add_dependencies(WildSparkLib cpplint)
+        add_dependencies(wildspark_game cpplint)
+        if(TARGET run_tests)
+            add_dependencies(run_tests cpplint)
+        endif()
+    else()
+        message(WARNING "Python3 interpreter not found; cpplint target disabled.")
+    endif()
+endif()
+
 # Install step (optional) - update target name if used
 # install(TARGETS wildspark_game DESTINATION bin)
 

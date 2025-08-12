@@ -1,5 +1,8 @@
+// Copyright 2025 WildSpark Authors
+
 #include "CharacterSelectionScene.h"
 #include <iostream>
+#include <string>
 #include "imgui.h"
 #include "imgui-SFML.h"
 #include "../SceneManager.h"
@@ -25,8 +28,7 @@ void CharacterSelectionScene::onEnter(SceneManager& manager) {
         },
         [this](const Nakama::NError& error) {
             this->handleErrorResponse(error);
-        }
-    );
+        });
 }
 
 void CharacterSelectionScene::handleCharacterListResponse(Nakama::NStorageObjectListPtr characterList) {
@@ -56,8 +58,7 @@ void CharacterSelectionScene::handleEvent(const sf::Event& event, SceneManager& 
 }
 
 void CharacterSelectionScene::update(sf::Time deltaTime, SceneManager& manager) {
-    // The authManagerRef.tick() is important for Nakama client to process responses
-    authManagerRef.tick(); 
+    authManagerRef.tick();
 }
 
 void CharacterSelectionScene::render(sf::RenderTarget& target) {
@@ -72,7 +73,6 @@ void CharacterSelectionScene::render(sf::RenderTarget& target) {
         if (!characters.empty()) {
             for (const auto& character : characters) {
                 std::string characterName = "Character ID: " + character.key;
-                // TODO: Parse character.value (JSON) to get character name, class, etc.
 
                 if (ImGui::Button(characterName.c_str())) {
                     selectCharacterAction(character.key);
@@ -84,7 +84,7 @@ void CharacterSelectionScene::render(sf::RenderTarget& target) {
             }
         }
     }
-    
+
     if (ImGui::Button("Back to Login")) {
         backToLoginAction();
     }
@@ -119,7 +119,6 @@ void CharacterSelectionScene::selectCharacterAction(const std::string& character
     }
 
     if (sceneManagerRef) {
-        // TODO: Potentially set the selected character in a global state or pass to game scene
         sceneManagerRef->switchTo(SceneType::Game);
     }
 }

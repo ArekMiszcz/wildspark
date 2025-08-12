@@ -1,12 +1,14 @@
+// Copyright 2025 WildSpark Authors
+
 #include "NakamaClient.h"
 #include <nakama-cpp/NError.h>
 #include <nakama-cpp/Nakama.h>
 #include <nakama-cpp/realtime/NRtDefaultClientListener.h>
 #include <iostream>
+#include <string>
 #include "../../vendor/dotenv-cpp/dotenv.h"
 
-NakamaClient::NakamaClient() : AuthClient()
-{
+NakamaClient::NakamaClient() : AuthClient() {
     Nakama::NLogger::initWithConsoleSink(Nakama::NLogLevel::Debug);
     parameters.serverKey = dotenv::getenv("NAKAMA_SERVER_KEY", "defaultkey");
     parameters.host = dotenv::getenv("NAKAMA_SERVER_HOST", "127.0.0.1");
@@ -16,8 +18,7 @@ NakamaClient::NakamaClient() : AuthClient()
     std::cout << "NakamaClient initialized" << std::endl;
 }
 
-NakamaClient::~NakamaClient()
-{
+NakamaClient::~NakamaClient() {
     _isRunning = false;
     if (session) {
         // Consider graceful logout if applicable
@@ -26,10 +27,8 @@ NakamaClient::~NakamaClient()
     std::cout << "NakamaClient destroyed" << std::endl;
 }
 
-void NakamaClient::tick()
-{
-    if (client && _isRunning)
-    {
+void NakamaClient::tick() {
+    if (client && _isRunning) {
         client->tick();
     }
 }
@@ -42,7 +41,7 @@ void NakamaClient::connect(const std::string& email, const std::string& password
 
     std::string username = email;
     bool create = true;
-    Nakama::NStringMap vars; 
+    Nakama::NStringMap vars;
 
     auto successCallback = [this, callback](Nakama::NSessionPtr newSession) {
         std::cout << "Nakama: Login successful. Session token: " << newSession->getAuthToken() << std::endl;
@@ -59,7 +58,7 @@ void NakamaClient::connect(const std::string& email, const std::string& password
 
         if (callback) callback(false, "Login failed: " + errorMessage);
     };
-    
+
     std::string deviceId = dotenv::getenv("NAKAMA_DEVICE_ID");
     if (deviceId.empty()) {
          deviceId = email;
@@ -73,9 +72,8 @@ void NakamaClient::connect(const std::string& email, const std::string& password
         create,
         vars,
         successCallback,
-        errorCallback
-    );
-    
+        errorCallback);
+
     std::cout << "NakamaClient: Authentication request sent for " << email << std::endl;
 }
 
@@ -91,7 +89,8 @@ Nakama::NRtClientPtr NakamaClient::getRtClient() {
         rtClient = client->createRtClient();
         if (session) {
             rtClient->connect(session, false);
-            std::cout << "NakamaClient: Real-time client connected with session token: " << session->getAuthToken() << std::endl;
+            std::cout << "NakamaClient: Real-time client connected with session token: "
+                      << session->getAuthToken() << std::endl;
         }
     }
     return rtClient;

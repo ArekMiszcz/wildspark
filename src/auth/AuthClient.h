@@ -1,17 +1,18 @@
-#pragma once
-#include <string>
-#include <functional> // For std::function
+// Copyright 2025 WildSpark Authors
 
-// Callback type for login results
+#pragma once
+
+#include <functional>
+#include <string>
+
 using LoginResultCallback = std::function<void(bool success, const std::string& message)>;
 
-class AuthClient
-{
-    public:
-        AuthClient() = default;
-        virtual ~AuthClient() = default;
+class AuthClient {
+ public:
+  AuthClient() = default;
+  virtual ~AuthClient() = default;
 
-        virtual void connect(const std::string& email, const std::string& password, LoginResultCallback callback) = 0;
-        virtual void disconnect() = 0;
-        virtual std::string getSessionToken() = 0;
+  virtual void connect(const std::string& email, const std::string& password, LoginResultCallback callback) = 0;
+  virtual void disconnect() = 0;
+  virtual std::string getSessionToken() = 0;
 };
