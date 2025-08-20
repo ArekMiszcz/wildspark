@@ -10,11 +10,10 @@ class PlayerTest : public ::testing::Test {
  protected:
   Player player;
 
-  PlayerTest() : player("test_player_id", sf::Color::Blue) {}
+  PlayerTest() : player("test_player_id", sf::Color::Blue, true) {}
 
   void SetUp() override {
     player.setPosition({100.f, 100.f});
-    Player::setLocalPlayerId(player.getId());
   }
 };
 

@@ -20,8 +20,8 @@ GameScene::GameScene(sf::RenderWindow& window, AuthManager& authManager,
       windowRef(window),
       authManagerRef(authManager),
       m_inputManager(inputManager),
-      m_worldMap(50, 50),
-      m_worldRenderer(m_worldMap),
+      m_worldMap("/home/miszczu/Projekty/Prywatne/wildspark/tiled/world.json"),
+      m_worldRenderer(std::make_unique<WorldRenderer>(m_worldMap)),
       m_camera(windowRef, 300.0f),
       m_networking(std::make_unique<Networking>(nakamaClient)) {
   std::cout << "GameScene created." << std::endl;
@@ -191,7 +191,9 @@ void GameScene::update(sf::Time deltaTime, SceneManager& manager) {
 
 void GameScene::render(sf::RenderTarget& target) {
   m_camera.applyTo(target);
-  m_worldRenderer.render(target);
+
+  m_worldRenderer->setDebugGrid(true);
+  m_worldRenderer->render(target);
 
   if (m_localPlayer) {
     m_localPlayer->render(target);

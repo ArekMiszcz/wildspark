@@ -7,10 +7,9 @@
 #include <sstream>
 #include <string>
 
-const char* Player::m_localPlayerId;
 const float DEFAULT_PLAYER_SPEED = 100.0f;
 
-Player::Player(const std::string& id, sf::Color color)
+Player::Player(const std::string& id, sf::Color color, bool isLocalPlayer)
     : m_id(id),
       m_position(0.f, 0.f),
       m_serverAcknowledgedPosition(0.f, 0.f),
@@ -19,7 +18,8 @@ Player::Player(const std::string& id, sf::Color color)
       m_fontLoaded(false),
       m_currentSequenceNumber(0),
       m_label(m_font, "", 12),
-      m_debugText(m_font, "", 10) {
+      m_debugText(m_font, "", 10),
+      m_isLocalPlayer(isLocalPlayer) {
   initVisuals();
   m_shape.setFillColor(color);
   m_shape.setFillColor(color);
@@ -85,7 +85,7 @@ void Player::handleServerUpdate(const sf::Vector2f& serverPosition,
   m_hasServerVerifiedPosition = true;
   m_lastProcessedSequenceNumber = lastProcessedSequence;
 
-  if (getId() != Player::m_localPlayerId) {
+  if (Player::m_isLocalPlayer) {
     setPosition(serverPosition);
   }
 
@@ -130,7 +130,7 @@ void Player::handleServerAck(unsigned int inputSequence, bool approved,
 }
 
 void Player::update(sf::Time deltaTime) {
-  if (getId() == Player::m_localPlayerId) {
+  if (Player::m_isLocalPlayer) {
     if (m_targetDirection.x != 0.f || m_targetDirection.y != 0.f) {
       sf::Vector2f moveDelta =
           m_targetDirection * m_speed * deltaTime.asSeconds();
@@ -155,8 +155,4 @@ unsigned int Player::getNextSequenceNumber() {
 
 void Player::setTargetDirection(const sf::Vector2f& direction) {
   m_targetDirection = direction;
-}
-
-void Player::setLocalPlayerId(const std::string& id) {
-  Player::m_localPlayerId = id.c_str();
 }

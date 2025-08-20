@@ -37,7 +37,6 @@ void InternalRtListener::onMatchData(const Nakama::NMatchData& data) {
             std::string messageType = gameMessage.value("type", "");
             nlohmann::json messageData = gameMessage.value("data", nlohmann::json::object());
 
-
             if (data.opCode == 2 && messageType == "world_update") {
                 if (m_networkingService->m_onPlayerStateUpdateCallback) {
                     if (messageData.contains("players") && messageData["players"].is_object()) {

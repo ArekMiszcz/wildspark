@@ -42,7 +42,7 @@ class GameScene : public Scene {
   AuthManager& authManagerRef;
   InputManager& m_inputManager;
   WorldMap m_worldMap;
-  WorldRenderer m_worldRenderer;
+  std::unique_ptr<WorldRenderer> m_worldRenderer;
   Camera m_camera;
   std::unique_ptr<Player> m_localPlayer;
   std::unique_ptr<Networking> m_networking;
