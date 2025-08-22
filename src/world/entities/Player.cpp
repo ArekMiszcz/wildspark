@@ -85,7 +85,7 @@ void Player::handleServerUpdate(const sf::Vector2f& serverPosition,
   m_hasServerVerifiedPosition = true;
   m_lastProcessedSequenceNumber = lastProcessedSequence;
 
-  if (Player::m_isLocalPlayer) {
+  if (!Player::m_isLocalPlayer) {
     setPosition(serverPosition);
   }
 

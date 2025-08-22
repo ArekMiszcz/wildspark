@@ -15,34 +15,23 @@ class Player {
   explicit Player(const std::string& id = "local_player",
                   sf::Color color = sf::Color::Green,
                   bool isLocalPlayer = false);
-
   void setId(const std::string& id);
   std::string getId() const;
-
-  void setDirection(
-      const sf::Vector2f& direction);  // Kept for direct setting if needed
-  sf::Vector2f getDirection() const;   // This should return m_targetDirection
+  void setDirection(const sf::Vector2f& direction);
+  sf::Vector2f getDirection() const;
   float getSpeed() const { return m_speed; }
-
   void setTargetDirection(const sf::Vector2f& direction);
-
-  // New method to handle input for player movement
   bool handleInput(const sf::Event& event, sf::RenderWindow& window,
                    const sf::View& view);
-
   void handleServerUpdate(const sf::Vector2f& serverPosition,
                           unsigned int lastProcessedSequenceNumber);
   void handleServerAck(unsigned int inputSequence, bool approved,
                        const sf::Vector2f& serverPosition);
-  void update(sf::Time deltaTime);  // For client-side interpolation/prediction
-                                    // if needed
+  void update(sf::Time deltaTime);
   void render(sf::RenderTarget& target);
-
   void setPosition(const sf::Vector2f& position);
-
   sf::Vector2f getPosition() const { return m_position; }
-
-  unsigned int getNextSequenceNumber();  // Added
+  unsigned int getNextSequenceNumber();
 
  private:
   std::string m_id;

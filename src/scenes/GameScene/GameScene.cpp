@@ -20,7 +20,7 @@ GameScene::GameScene(sf::RenderWindow& window, AuthManager& authManager,
       windowRef(window),
       authManagerRef(authManager),
       m_inputManager(inputManager),
-      m_worldMap("/home/miszczu/Projekty/Prywatne/wildspark/tiled/world.json"),
+      m_worldMap("assets/maps/main/world.json"),
       m_worldRenderer(std::make_unique<WorldRenderer>(m_worldMap)),
       m_camera(windowRef, 300.0f),
       m_networking(std::make_unique<Networking>(nakamaClient)) {
@@ -190,19 +190,28 @@ void GameScene::update(sf::Time deltaTime, SceneManager& manager) {
 }
 
 void GameScene::render(sf::RenderTarget& target) {
+  // Apply camera to world
   m_camera.applyTo(target);
 
+  // Configure renderer as you already did
+  m_worldRenderer->setCulling(true);
   m_worldRenderer->setDebugGrid(true);
-  m_worldRenderer->render(target);
 
+  // 1) Ground & floor layers first
+  m_worldRenderer->renderGround(target);
+
+  // 2) Actors (local player, then others)
   if (m_localPlayer) {
     m_localPlayer->render(target);
   }
-
   for (const auto& pair : m_otherPlayers) {
     pair.second->render(target);
   }
 
+  // 3) Occluders/overlays (walls, roofs, etc.) after players
+  m_worldRenderer->renderOverlays(target);
+
+  // Restore default view for UI
   target.setView(target.getDefaultView());
 }
 
