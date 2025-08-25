@@ -19,17 +19,18 @@ std::string WorldRenderer::toLower(std::string s) {
 bool WorldRenderer::isGroundName(std::string_view name) {
   std::string n(name);
   n = toLower(n);
-  return n.find("ground") != std::string::npos ||
-         n.find("world") != std::string::npos;
+  return n.find("world") != std::string::npos ||
+         n.find("decals") != std::string::npos ||
+         n.find("level_0_0") != std::string::npos;
 }
 
 bool WorldRenderer::isOverlayName(std::string_view name) {
   std::string n(name);
   n = toLower(n);
   // Common occluder-ish names from Tiled projects
-  return n.find("ground_l1") != std::string::npos ||
-         n.find("walls_l1") != std::string::npos ||
-         n.find("walls_l2") != std::string::npos;
+  return n.find("level_0_1") != std::string::npos ||
+         n.find("level_1_0") != std::string::npos ||
+         n.find("level_1_1") != std::string::npos;
 }
 
 sf::FloatRect WorldRenderer::boundsFor(const sf::VertexArray& va) const {
@@ -80,13 +81,34 @@ void WorldRenderer::drawLayerMesh(sf::RenderTarget& target,
     const float maxX = std::max(std::max(tl.x, tr.x), std::max(br.x, bl.x));
     const float maxY = std::max(std::max(tl.y, tr.y), std::max(br.y, bl.y));
     const sf::FloatRect localVisible({minX, minY}, {maxX - minX, maxY - minY});
+    const sf::Vector2i sourceTileSize = {
+      static_cast<int>(map_.tileWidth()),
+      static_cast<int>(map_.tileHeight())
+    };
 
     for (const auto& ch : layer.chunks) {
-      if (!ch.visible || ch.opacity <= 0.f) continue;
+      if (!ch.visible || ch.opacity <= 0.f || ch.vertices.getVertexCount() == 0) {
+        continue;
+      }
+
       const sf::FloatRect b = boundsFor(ch.vertices);
-      if (!b.findIntersection(localVisible)) continue;
-      sf::RenderStates cs = s;
+
+      if (!b.findIntersection(localVisible)) {
+        continue;
+      }
+
+      sf::RenderStates cs = states;
       cs.texture = ch.texture;
+
+      // Scale geometry from tileset pixels -> world grid pixels
+      if (sourceTileSize.x > 0 && sourceTileSize.y > 0) {
+        const float sx = static_cast<float>(map_.tileWidth()) /
+                        static_cast<float>(sourceTileSize.x);
+        const float sy = static_cast<float>(map_.tileHeight()) /
+                        static_cast<float>(sourceTileSize.y);
+        cs.transform.scale(sf::Vector2f(sx, sy));
+      }
+
       target.draw(ch.vertices, cs);
     }
 

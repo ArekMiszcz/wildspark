@@ -20,7 +20,7 @@ GameScene::GameScene(sf::RenderWindow& window, AuthManager& authManager,
       windowRef(window),
       authManagerRef(authManager),
       m_inputManager(inputManager),
-      m_worldMap("assets/maps/main/world.json"),
+      m_worldMap("/elderford/world.json"),
       m_worldRenderer(std::make_unique<WorldRenderer>(m_worldMap)),
       m_camera(windowRef, 300.0f),
       m_networking(std::make_unique<Networking>(nakamaClient)) {
@@ -203,7 +203,9 @@ void GameScene::render(sf::RenderTarget& target) {
   // 2) Actors (local player, then others)
   if (m_localPlayer) {
     m_localPlayer->render(target);
+    m_camera.setCenter(m_localPlayer->getPosition());
   }
+
   for (const auto& pair : m_otherPlayers) {
     pair.second->render(target);
   }

@@ -4,16 +4,9 @@
 #include <iostream>
 #include <string>
 #include "clients/NakamaClient.h"
-#include "../vendor/dotenv-cpp/dotenv.h"
 
 AuthManager::AuthManager(ConstructionMode mode) : authClient(nullptr) {
     if (mode == ConstructionMode::NORMAL) {
-        try {
-            dotenv::init();
-        } catch (const std::exception& e) {
-            std::cerr << "AuthManager: Exception during dotenv::init(): " << e.what() << std::endl;
-        }
-
         authClient = new NakamaClient();
     }
 }

@@ -11,8 +11,11 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <cstdio>
 
 #include <nlohmann/json.hpp>
+
+#include "../vendor/dotenv-cpp/dotenv.h"
 
 using nlohmann::json;
 namespace fs = std::filesystem;
@@ -28,11 +31,14 @@ WorldMap::WorldMap(const std::string& mapJsonPath) {
 }
 
 void WorldMap::loadFromJson(const std::string& mapPathStr) {
-  fs::path mapPath = mapPathStr;
+  fs::path mapPath = dotenv::getenv("MAPS_DIR") + mapPathStr;
   fs::path mapDir = mapPath.parent_path();
-  const json j = json::parse(readFile(mapPath));
 
+  printf("Loading map from: %s\n", mapPath.c_str());
+
+  const json j = json::parse(readFile(mapPath));
   const std::string orientation = j.value("orientation", "orthogonal");
+
   if (orientation != "orthogonal")
     throw std::runtime_error("Only orthogonal maps are supported. Got: " +
                              orientation);
@@ -404,7 +410,7 @@ void WorldMap::buildLayers(const json& j) {
 
           ObjDraw od;
           od.tex = tex;
-          od.sortY = footY;
+          od.sortY = footY - static_cast<float>(th) / 2.f + static_cast<float>(tw) / 2.f;
 
           auto& t = od.tri;
           t[0].position = pos;

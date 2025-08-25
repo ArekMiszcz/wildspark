@@ -1,7 +1,9 @@
 // Copyright 2025 WildSpark Authors
 
 #include <memory>
+#include <iostream>
 
+#include "vendor/dotenv-cpp/dotenv.h"
 #include "account/AccountManager.h"
 #include "auth/AuthManager.h"
 #include "input/InputManager.h"
@@ -15,6 +17,12 @@
 #include <SFML/Window.hpp>
 
 int main() {
+  try {
+      dotenv::init();
+  } catch (const std::exception& e) {
+      std::cerr << "Exception during dotenv::init(): " << e.what() << std::endl;
+  }
+
   sf::RenderWindow window(sf::VideoMode({800, 600}, 24),
                           "SFML Game with Scenes");
   window.setFramerateLimit(60);
