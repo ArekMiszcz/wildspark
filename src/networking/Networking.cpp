@@ -25,11 +25,6 @@ void InternalRtListener::onError(const Nakama::NRtError& error) {
 }
 
 void InternalRtListener::onMatchData(const Nakama::NMatchData& data) {
-    std::cout << "Received match data from user: " << data.presence.userId
-              << " with op code: " << data.opCode
-              << ", data: " << std::string(data.data.begin(), data.data.end()) << std::endl;
-
-
     if (m_networkingService) {
         try {
             std::string jsonDataStr(data.data.begin(), data.data.end());
@@ -237,6 +232,32 @@ void Networking::sendPlayerUpdate(const sf::Vector2f& direction, float speed, un
     payload["inputSequence"] = sequenceNumber;
     payload["velocityX"] = direction.x * speed;
     payload["velocityY"] = direction.y * speed;
+
+    std::string data = payload.dump();
+
+    Nakama::NBytes bytesData(data.begin(), data.end());
+
+    m_rtClient->sendMatchData(m_currentMatchId, opCode, bytesData);
+}
+
+void Networking::sendPlayerAction(const int objectId, const std::string& action, unsigned int sequenceNumber) {
+    if (!m_rtClient || !m_rtClient->isConnected() || m_currentMatchId.empty()) {
+        std::cerr << "Networking::sendPlayerAction: Not connected to a match or rtClient is invalid." << std::endl;
+        return;
+    }
+
+    if (!m_sessionPtr) {
+        std::cerr << "Networking::sendPlayerAction: Session pointer is null." << std::endl;
+        return;
+    }
+
+    int64_t opCode = 5;
+
+    nlohmann::json payload;
+    payload["playerId"] = m_sessionPtr->getUserId();
+    payload["action"] = action;
+    payload["objectId"] = objectId;
+    payload["inputSequence"] = sequenceNumber;
 
     std::string data = payload.dump();
 

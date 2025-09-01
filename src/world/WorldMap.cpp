@@ -3,19 +3,20 @@
 #include "WorldMap.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include <cstdio>
-
-#include <nlohmann/json.hpp>
 
 #include "../vendor/dotenv-cpp/dotenv.h"
+
+#include <nlohmann/json.hpp>
 
 using nlohmann::json;
 namespace fs = std::filesystem;
@@ -113,6 +114,48 @@ void WorldMap::loadTilesetInline(const fs::path& mapDir, const json& tsj) {
         pt.width = static_cast<int>(s.x);
         pt.height = static_cast<int>(s.y);
       }
+
+      // Parse object groups for this tile if they exist
+      if (tile.contains("objectgroup") && tile["objectgroup"].is_object()) {
+        const auto& objGroup = tile["objectgroup"];
+        Tileset::ObjectGroup group;
+        group.id = objGroup.value("id", 0);
+        group.name = objGroup.value("name", "");
+        group.draworder = objGroup.value("draworder", "index");
+        group.opacity = objGroup.value("opacity", 1.0f);
+        group.visible = objGroup.value("visible", true);
+
+        // Parse objects
+        if (objGroup.contains("objects") && objGroup["objects"].is_array()) {
+          for (const auto& obj : objGroup["objects"]) {
+            Tileset::Object object;
+            object.id = obj.value("id", 0);
+            object.name = obj.value("name", "");
+            object.type = obj.value("type", "");
+            object.x = obj.value("x", 0.0f);
+            object.y = obj.value("y", 0.0f);
+            object.width = obj.value("width", 0.0f);
+            object.height = obj.value("height", 0.0f);
+            object.rotation = obj.value("rotation", 0.0f);
+            object.visible = obj.value("visible", true);
+
+            // Parse polygon points if they exist
+            if (obj.contains("polygon") && obj["polygon"].is_array()) {
+              for (const auto& point : obj["polygon"]) {
+                Tileset::Point p;
+                p.x = point.value("x", 0.0f);
+                p.y = point.value("y", 0.0f);
+                object.polygon.push_back(p);
+              }
+            }
+
+            group.objects.push_back(object);
+          }
+        }
+
+        ts.objectGroups[pt.localId] = std::move(group);
+      }
+
       ts.perTile.emplace(pt.localId, std::move(pt));
     }
     if (ts.perTile.empty())
@@ -182,6 +225,48 @@ void WorldMap::loadTilesetExternal(const fs::path& mapDir,
         pt.width = static_cast<int>(s.x);
         pt.height = static_cast<int>(s.y);
       }
+
+      // Parse object groups for this tile if they exist
+      if (tile.contains("objectgroup") && tile["objectgroup"].is_object()) {
+        const auto& objGroup = tile["objectgroup"];
+        Tileset::ObjectGroup group;
+        group.id = objGroup.value("id", 0);
+        group.name = objGroup.value("name", "");
+        group.draworder = objGroup.value("draworder", "index");
+        group.opacity = objGroup.value("opacity", 1.0f);
+        group.visible = objGroup.value("visible", true);
+
+        // Parse objects
+        if (objGroup.contains("objects") && objGroup["objects"].is_array()) {
+          for (const auto& obj : objGroup["objects"]) {
+            Tileset::Object object;
+            object.id = obj.value("id", 0);
+            object.name = obj.value("name", "");
+            object.type = obj.value("type", "");
+            object.x = obj.value("x", 0.0f);
+            object.y = obj.value("y", 0.0f);
+            object.width = obj.value("width", 0.0f);
+            object.height = obj.value("height", 0.0f);
+            object.rotation = obj.value("rotation", 0.0f);
+            object.visible = obj.value("visible", true);
+
+            // Parse polygon points if they exist
+            if (obj.contains("polygon") && obj["polygon"].is_array()) {
+              for (const auto& point : obj["polygon"]) {
+                Tileset::Point p;
+                p.x = point.value("x", 0.0f);
+                p.y = point.value("y", 0.0f);
+                object.polygon.push_back(p);
+              }
+            }
+
+            group.objects.push_back(object);
+          }
+        }
+
+        ts.objectGroups[pt.localId] = std::move(group);
+      }
+
       ts.perTile.emplace(pt.localId, std::move(pt));
     }
     if (ts.perTile.empty())
@@ -228,6 +313,7 @@ void WorldMap::buildLayers(const json& j) {
 
     // batch by texture
     auto makeLayer = [&](LayerMesh& mesh) {
+      mesh.type = type;
       mesh.name = lj.value("name", "");
       mesh.visible = lj.value("visible", true);
       mesh.opacity = lj.value("opacity", 1.f);
@@ -277,14 +363,27 @@ void WorldMap::buildLayers(const json& j) {
 
       // find or make chunk by texture
       LayerMesh::Chunk* chunk = nullptr;
-      for (auto& c : mesh.chunks)
-        if (c.texture == tex) {
-          chunk = &c;
-          break;
+
+      for (auto& c : mesh.chunk_buckets) {
+        std::vector<LayerMesh::Chunk>& cl = c.second.chunks;
+        for (auto& c : cl) {
+          if (c.texture == tex) {
+            chunk = &c;
+            break;
+          }
         }
+        if (chunk) break;
+      }
+
       if (!chunk) {
-        mesh.chunks.push_back(LayerMesh::Chunk{});
-        chunk = &mesh.chunks.back();
+        LayerMesh::CellKey key{
+            static_cast<int>(std::floor(pos.x / tileWidth_)),
+            static_cast<int>(std::floor(pos.y / tileHeight_))};
+        auto [it, _] =
+            mesh.chunk_buckets.emplace(key, LayerMesh::ChunkBucket{});
+        it->second.chunks.push_back(LayerMesh::Chunk{});
+        chunk = &(it->second.chunks.back());
+        chunk->gid = ts->firstGid + localId;
         chunk->texture = tex;
         chunk->visible = mesh.visible;
         chunk->opacity = mesh.opacity;
@@ -335,25 +434,57 @@ void WorldMap::buildLayers(const json& j) {
                      d = (raw & 0x20000000u) != 0;
           const Tileset* ts = findTilesetForGid(raw);
           if (!ts) continue;
-          const uint32_t localId = clearFlipFlags(raw) - static_cast<uint32_t>(ts->firstGid);
+          const uint32_t localId =
+              clearFlipFlags(raw) - static_cast<uint32_t>(ts->firstGid);
           appendTile(mesh, ts, localId, tileToWorld(tx, ty), h, v, d);
         }
       }
 
-      if (!mesh.chunks.empty()) layers_.push_back(std::move(mesh));
+      if (!mesh.chunk_buckets.empty()) {
+        mesh.chunk_bucket_order.reserve(mesh.chunk_buckets.size());
+
+        for (const auto& kv : mesh.chunk_buckets)
+          mesh.chunk_bucket_order.push_back(kv.first);
+
+        std::sort(mesh.chunk_bucket_order.begin(),
+                  mesh.chunk_bucket_order.end(),
+                  [](const auto& a, const auto& b) {
+                    if (a.y != b.y) return a.y < b.y;
+                    return a.x < b.x;
+                  });
+
+        for (const auto& key : mesh.chunk_bucket_order) {
+          auto it = mesh.chunk_buckets.find(key);
+          if (it == mesh.chunk_buckets.end()) continue;
+          auto& chunks = it->second.chunks;
+          std::stable_sort(
+              chunks.begin(), chunks.end(),
+              [](const LayerMesh::Chunk& a, const LayerMesh::Chunk& b) {
+                return a.sortY < b.sortY;
+              });
+        }
+
+        layers_.push_back(std::move(mesh));
+      }
+
       continue;
     }
 
     // object layers (tile objects with gid)
     if (type == "objectgroup") {
       LayerMesh mesh;
+
       makeLayer(mesh);
 
       struct ObjDraw {
+        uint32_t id = 0;
+        uint32_t gid = 0;
+        sf::Vector2f pos{};
         const sf::Texture* tex{};
         std::array<sf::Vertex, 6> tri{};
         float sortY = 0.f;
       };
+
       std::vector<ObjDraw> drawables;
 
       if (lj.contains("objects")) {
@@ -366,7 +497,8 @@ void WorldMap::buildLayers(const json& j) {
           const Tileset* ts = findTilesetForGid(raw);
           if (!ts) continue;
 
-          const uint32_t localId = clearFlipFlags(raw) - static_cast<uint32_t>(ts->firstGid);
+          const uint32_t localId =
+              clearFlipFlags(raw) - static_cast<uint32_t>(ts->firstGid);
 
           // Build UVs + texture
           sf::Vector2f uv[4];
@@ -377,7 +509,8 @@ void WorldMap::buildLayers(const json& j) {
             if (cols <= 0)
               throw std::runtime_error("Tileset '" + ts->name +
                                        "' invalid columns (<=0).");
-            const int tu = static_cast<int>(localId % cols), tv = static_cast<int>(localId / cols);
+            const int tu = static_cast<int>(localId % cols),
+                      tv = static_cast<int>(localId / cols);
             tw = ts->tileWidth;
             th = ts->tileHeight;
             const int margin = ts->margin, spacing = ts->spacing;
@@ -409,8 +542,11 @@ void WorldMap::buildLayers(const json& j) {
           const sf::Vector2f pos{footX, footY - static_cast<float>(th)};
 
           ObjDraw od;
+          od.id = obj.at("id");
+          od.gid = raw;
+          od.pos = pos;
           od.tex = tex;
-          od.sortY = footY - static_cast<float>(th) / 2.f + static_cast<float>(tw) / 2.f;
+          od.sortY = footY;
 
           auto& t = od.tri;
           t[0].position = pos;
@@ -434,25 +570,199 @@ void WorldMap::buildLayers(const json& j) {
         }
       }
 
-      // Sort by Y (top → bottom). Lower on screen draws later.
-      std::sort(
-          drawables.begin(), drawables.end(),
-          [](const ObjDraw& a, const ObjDraw& b) { return a.sortY < b.sortY; });
-
-      // ONE chunk per object (preserve order across different textures)
       for (const auto& od : drawables) {
-        LayerMesh::Chunk ch;
-        ch.texture = od.tex;
-        ch.visible = mesh.visible;
-        ch.opacity = mesh.opacity;
-        ch.vertices.setPrimitiveType(sf::PrimitiveType::Triangles);
-        ch.vertices.resize(6);
-        for (int i = 0; i < 6; ++i) ch.vertices[i] = od.tri[i];
-        mesh.chunks.push_back(std::move(ch));
+        // Create keys based on tile size
+        bool visible = mesh.visible;
+        std::vector<LayerMesh::CellKey> keys;
+        for (int dy = 0;
+             dy <
+             (od.tri[5].position.y - od.tri[0].position.y) / tileHeight_ + 1;
+             ++dy) {
+          for (int dx = 0;
+               dx <
+               (od.tri[1].position.x - od.tri[0].position.x) / tileWidth_ + 1;
+               ++dx) {
+            LayerMesh::CellKey key{
+                static_cast<int>(
+                    std::floor((od.pos.x + dx * tileWidth_) / tileWidth_)),
+                static_cast<int>(
+                    std::floor((od.pos.y + dy * tileHeight_) / tileHeight_))};
+            LayerMesh::Chunk ch;
+
+            ch.id = od.id;
+            ch.gid = od.gid;
+            ch.texture = od.tex;
+            ch.visible = visible;
+            ch.opacity = mesh.opacity;
+            ch.vertices.setPrimitiveType(sf::PrimitiveType::Triangles);
+            ch.vertices.resize(6);
+            ch.sortY = od.sortY;
+
+            for (int i = 0; i < 6; ++i) {
+              ch.vertices[i] = od.tri[i];
+            }
+
+            mesh.chunk_buckets[key].chunks.push_back(std::move(ch));
+
+            // only the first chunk is visible to not render the same object
+            // multiple times
+            visible = false;
+          }
+        }
       }
 
-      if (!mesh.chunks.empty()) layers_.push_back(std::move(mesh));
+      if (!mesh.chunk_buckets.empty()) {
+        mesh.chunk_bucket_order.reserve(mesh.chunk_buckets.size());
+
+        for (const auto& kv : mesh.chunk_buckets) {
+          mesh.chunk_bucket_order.push_back(kv.first);
+        }
+
+        std::sort(mesh.chunk_bucket_order.begin(),
+                  mesh.chunk_bucket_order.end(),
+                  [](const auto& a, const auto& b) {
+                    if (a.y != b.y) {
+                      return a.y < b.y;
+                    }
+
+                    return a.x < b.x;
+                  });
+
+        for (const auto& key : mesh.chunk_bucket_order) {
+          auto it = mesh.chunk_buckets.find(key);
+
+          if (it == mesh.chunk_buckets.end()) {
+            continue;
+          }
+
+          auto& chunks = it->second.chunks;
+          std::stable_sort(
+              chunks.begin(), chunks.end(),
+              [](const LayerMesh::Chunk& a, const LayerMesh::Chunk& b) {
+                return a.sortY < b.sortY;
+              });
+        }
+
+        // Build global draw order for object layers: gather pointers to all
+        // chunks and sort by chunk->sortY. Reserve exact size for efficiency.
+        size_t totalChunks = 0;
+        for (const auto& kv : mesh.chunk_buckets)
+          totalChunks += kv.second.chunks.size();
+        mesh.object_draw_order.clear();
+        mesh.object_draw_order.reserve(totalChunks);
+        for (auto& kv : mesh.chunk_buckets) {
+          for (auto& c : kv.second.chunks) mesh.object_draw_order.push_back(&c);
+        }
+        std::stable_sort(
+            mesh.object_draw_order.begin(), mesh.object_draw_order.end(),
+            [](const LayerMesh::Chunk* a, const LayerMesh::Chunk* b) {
+              if (a->sortY != b->sortY) return a->sortY < b->sortY;
+              // tie-breaker: by x then id to stabilize ordering
+              const float ax = a->vertices.getVertexCount()
+                                   ? a->vertices[0].position.x
+                                   : 0.f;
+              const float bx = b->vertices.getVertexCount()
+                                   ? b->vertices[0].position.x
+                                   : 0.f;
+              if (ax != bx) return ax < bx;
+              return a->id < b->id;
+            });
+
+        layers_.push_back(std::move(mesh));
+      }
+
       continue;
     }
   }
+}
+
+int WorldMap::getObjectIdAtPosition(const sf::Vector2f& worldPos) const {
+  for (auto it = layers_.rbegin(); it != layers_.rend(); ++it) {
+    const LayerMesh& mesh = *it;
+
+    if (mesh.type != "objectgroup") {
+      continue;
+    }
+
+    LayerMesh::CellKey key{
+        static_cast<int>(std::floor(worldPos.x / tileWidth_)),
+        static_cast<int>(std::floor(worldPos.y / tileHeight_))};
+
+    auto bit = mesh.chunk_buckets.find(key);
+
+    if (bit == mesh.chunk_buckets.end()) {
+      continue;
+    }
+
+    const auto& bucket = bit->second;
+
+    if (bucket.chunks.empty()) {
+      continue;
+    }
+
+    for (const auto& chunk : bucket.chunks) {
+      if (chunk.vertices.getVertexCount() < 6) {
+        continue;
+      }
+
+      const sf::FloatRect bbox = chunk.vertices.getBounds();
+
+      if (bbox.contains(worldPos)) {
+        const WorldMap::Tileset* tileset = findTilesetForGid(chunk.gid);
+
+        if (!tileset) {
+          continue;
+        }
+
+        const int localId = chunk.gid - tileset->firstGid;
+        if (tileset->objectGroups.find(localId) ==
+            tileset->objectGroups.end()) {
+          continue;
+        }
+
+        for (const auto& obj : tileset->objectGroups.at(localId).objects) {
+          if (obj.type != "clickable") {
+            continue;
+          }
+
+          sf::ConvexShape polygon{
+              static_cast<unsigned int>(obj.polygon.size())};
+
+          for (size_t i = 0; i < obj.polygon.size(); ++i) {
+            polygon.setPoint(
+                i, {obj.x + obj.polygon[i].x, obj.y + obj.polygon[i].y});
+          }
+
+          polygon.setPosition(chunk.vertices[0].position);
+
+          if (!polygon.getGlobalBounds().contains(worldPos)) {
+            continue;
+          }
+
+          // More precise point-in-polygon test
+          if (polygon.getPointCount() >= 3) {
+            // Ray-casting algorithm
+            bool inside = false;
+            for (size_t i = 0, j = polygon.getPointCount() - 1;
+                  i < polygon.getPointCount(); j = i++) {
+              sf::Vector2f pi = polygon.getPoint(i) + polygon.getPosition();
+              sf::Vector2f pj = polygon.getPoint(j) + polygon.getPosition();
+              if (((pi.y > worldPos.y) != (pj.y > worldPos.y)) &&
+                  (worldPos.x <
+                    (pj.x - pi.x) * (worldPos.y - pi.y) / (pj.y - pi.y) +
+                        pi.x)) {
+                inside = !inside;
+              }
+            }
+
+            if (inside) {
+              return static_cast<int>(chunk.id);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return -1;
 }

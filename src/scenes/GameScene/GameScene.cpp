@@ -31,6 +31,8 @@ GameScene::GameScene(sf::RenderWindow& window, AuthManager& authManager,
   m_inputManager.mapActionToKey("camera_move_right", sf::Keyboard::Key::D);
   m_inputManager.mapActionToMouseButton("player_move",
                                         sf::Mouse::Button::Right);
+  m_inputManager.mapActionToMouseButton("player_interact",
+                                        sf::Mouse::Button::Left);
 }
 
 GameScene::~GameScene() { std::cout << "GameScene destroyed." << std::endl; }
@@ -165,6 +167,24 @@ void GameScene::update(sf::Time deltaTime, SceneManager& manager) {
                   << m_localPlayer->getDirection().x << ", "
                   << m_localPlayer->getDirection().y << ")" << std::endl;
       }
+    } else if (m_inputManager.isActionActive("player_interact")) {
+      sf::Vector2i mousePos = sf::Mouse::getPosition(windowRef);
+      sf::Vector2f worldPos =
+          windowRef.mapPixelToCoords(mousePos, m_camera.getView());
+
+      int objectId = m_worldMap.getObjectIdAtPosition(worldPos);
+
+      if (objectId == -1) {
+        std::cout << "GameScene: No interactable object at position ("
+                  << worldPos.x << ", " << worldPos.y << ")" << std::endl;
+        return;
+      }
+
+      std::string action = "interact";
+      m_networking->sendPlayerAction(objectId, action,
+                                     m_localPlayer->getNextSequenceNumber());
+      std::cout << "GameScene: Player interaction command sent. ObjectID: "
+                << objectId << ", Action: " << action << std::endl;
     } else {
       if (m_localPlayer->getDirection().x != 0.f ||
           m_localPlayer->getDirection().y != 0.f) {
@@ -196,6 +216,11 @@ void GameScene::render(sf::RenderTarget& target) {
   // Configure renderer as you already did
   m_worldRenderer->setCulling(true);
   m_worldRenderer->setDebugGrid(true);
+
+  // Enable debug for clickable object areas based on toggle state
+  m_worldRenderer->setDebugObjectAreas(true);
+  m_worldRenderer->setDebugObjectAreasColor(
+      sf::Color(0, 255, 255, 128));  // Cyan with transparency
 
   // 1) Ground & floor layers first
   m_worldRenderer->renderGround(target);

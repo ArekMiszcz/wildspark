@@ -9,7 +9,7 @@
 #include "../../vendor/dotenv-cpp/dotenv.h"
 
 NakamaClient::NakamaClient() : AuthClient() {
-    Nakama::NLogger::initWithConsoleSink(Nakama::NLogLevel::Debug);
+    Nakama::NLogger::initWithConsoleSink(Nakama::NLogLevel::Error);
     parameters.serverKey = dotenv::getenv("NAKAMA_SERVER_KEY", "defaultkey");
     parameters.host = dotenv::getenv("NAKAMA_SERVER_HOST", "127.0.0.1");
     parameters.port = Nakama::DEFAULT_PORT;

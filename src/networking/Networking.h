@@ -62,6 +62,7 @@ class Networking {
   void completePendingMatchJoin();
 
   void sendPlayerUpdate(const sf::Vector2f& direction, float speed, unsigned int sequenceNumber);
+  void sendPlayerAction(const int objectId, const std::string& action, unsigned int sequenceNumber);
 
   using PlayerStateUpdateCallback = std::function<
       void(const std::string& playerId, const sf::Vector2f& position, unsigned int lastProcessedSequence)>;
