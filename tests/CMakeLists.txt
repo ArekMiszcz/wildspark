@@ -10,6 +10,7 @@ set(TEST_SOURCES
     test_character_creation_scene_edge_cases.cpp
     test_player.cpp
     test_networking.cpp
+    test_worldmap_updateobject.cpp
     mocks/MockAuthManager.h
     mocks/MockRenderWindow.h
     mocks/MockSceneManager.h

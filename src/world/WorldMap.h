@@ -7,6 +7,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <utility>
 
 #include <SFML/Graphics.hpp>
 #include <nlohmann/json.hpp>
@@ -179,7 +180,23 @@ class WorldMap {
   // without having to load JSON files from disk.
   std::vector<LayerMesh>& layersMutable() { return layers_; }
 
+  // Test helper: allow tests to set tile size (used when constructing
+  // synthetic maps via layersMutable()).
+  void setTileSize(int w, int h) { tileWidth_ = w; tileHeight_ = h; }
+
+  // Test helper: expose index-building for unit tests.
+  void buildObjectIndexForTests() { buildObjectIndex(); }
+
  private:
+  // Fast lookup: map object id -> list of (layerIndex, cell key) where the
+  // object's chunks live. This avoids scanning all cells when updating a
+  // single object at runtime.
+  std::unordered_map<int, std::vector<std::pair<int, LayerMesh::CellKey>>>
+      object_index_;
+
+  // Build the object index after layers are constructed or after large
+  // modifications. Kept private because it mirrors internal structures.
+  void buildObjectIndex();
   // loading
   void loadFromJson(const std::string& mapPath);
   void loadTilesetInline(const std::filesystem::path& mapDir,

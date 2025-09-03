@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <iostream>
+#include <string>
 
 #include "vendor/dotenv-cpp/dotenv.h"
 #include "account/AccountManager.h"
@@ -49,7 +50,6 @@ int main() {
                                   authManager.getNakamaClientPtr(),
                                   authManager.getNakamaSessionPtr()));
 
-  // Switch to the login scene
   sceneManager.switchTo(SceneType::Login);
 
   sf::Clock clock;

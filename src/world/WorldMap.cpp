@@ -673,6 +673,24 @@ void WorldMap::buildLayers(const json& j) {
       continue;
     }
   }
+
+  // Build fast lookup index for object layers
+  buildObjectIndex();
+}
+
+void WorldMap::buildObjectIndex() {
+  object_index_.clear();
+  for (size_t li = 0; li < layers_.size(); ++li) {
+    const auto& layer = layers_[li];
+    if (layer.type != "objectgroup") continue;
+    for (const auto& kv : layer.chunk_buckets) {
+      const LayerMesh::CellKey key = kv.first;
+      for (const auto& c : kv.second.chunks) {
+        object_index_[static_cast<int>(c.id)].push_back(
+            {static_cast<int>(li), key});
+      }
+    }
+  }
 }
 
 int WorldMap::getObjectIdAtPosition(const sf::Vector2f& worldPos) const {
@@ -842,156 +860,194 @@ bool WorldMap::updateObject(int objectId, const nlohmann::json& props,
   if (hasVisible) newVisible = props.value("visible", true);
   if (hasOpacity) newOpacity = props.value("opacity", 1.0f);
 
-  for (size_t li = 0; li < layers_.size(); ++li) {
+  // Helper to mark affected layer index
+  auto markLayer = [&](int li) {
+    if (outAffectedLayers) outAffectedLayers->push_back(li);
+  };
+
+  // Ensure object_index_ is up-to-date and contains entries for this
+  // object. We do NOT fallback to scanning buckets; instead we rebuild the
+  // index if necessary and fail-fast when the object is still not present.
+  auto itIndex = object_index_.find(objectId);
+  if (itIndex == object_index_.end()) {
+    buildObjectIndex();
+    itIndex = object_index_.find(objectId);
+  }
+  if (itIndex == object_index_.end()) {
+    throw std::runtime_error("Object index missing entries for objectId: " +
+                             std::to_string(objectId));
+  }
+
+  // Update gid/visible/opacity using indexed keys only
+  for (const auto& loc : itIndex->second) {
+    const int li = loc.first;
+    const LayerMesh::CellKey key = loc.second;
+    if (li < 0 || li >= static_cast<int>(layers_.size())) continue;
     auto& mesh = layers_[li];
     if (mesh.type != "objectgroup") continue;
 
-    // Apply visible/opacity/gid updates to matching chunks first
-    for (auto& [key, bucket] : mesh.chunk_buckets) {
-      for (size_t ci = 0; ci < bucket.chunks.size(); ++ci) {
-        auto& chunk = bucket.chunks[ci];
-        if (static_cast<int>(chunk.id) != objectId) continue;
+    auto bit = mesh.chunk_buckets.find(key);
+    if (bit == mesh.chunk_buckets.end()) continue;
+    auto& bucket = bit->second;
 
-        bool thisChanged = false;
+    for (size_t ci = 0; ci < bucket.chunks.size(); ++ci) {
+      auto& chunk = bucket.chunks[ci];
+      if (static_cast<int>(chunk.id) != objectId) continue;
 
-        if (hasVisible) {
-          if (chunk.visible != newVisible) {
-            chunk.visible = newVisible;
-            thisChanged = true;
-          }
+      bool thisChanged = false;
+
+      if (hasVisible) {
+        if (chunk.visible != newVisible) {
+          chunk.visible = newVisible;
+          thisChanged = true;
         }
+      }
 
-        if (hasOpacity) {
-          if (std::abs(chunk.opacity - newOpacity) > 1e-6f) {
-            chunk.opacity = newOpacity;
-            const std::uint8_t a =
-                static_cast<std::uint8_t>(255.f * chunk.opacity);
-            for (size_t vi = 0; vi < chunk.vertices.getVertexCount(); ++vi) {
-              chunk.vertices[vi].color.a = a;
-            }
-            thisChanged = true;
+      if (hasOpacity) {
+        if (std::abs(chunk.opacity - newOpacity) > 1e-6f) {
+          chunk.opacity = newOpacity;
+          const std::uint8_t a =
+              static_cast<std::uint8_t>(255.f * chunk.opacity);
+          for (size_t vi = 0; vi < chunk.vertices.getVertexCount(); ++vi) {
+            chunk.vertices[vi].color.a = a;
           }
+          thisChanged = true;
         }
+      }
 
-        if (hasGid) {
-          if (chunk.gid != newGid) {
-            // Handle flip flags: preserve them when applying texcoords if any
-            const bool h = (newGid & 0x80000000u) != 0;
-            const bool v = (newGid & 0x40000000u) != 0;
-            const bool d = (newGid & 0x20000000u) != 0;
+      if (hasGid) {
+        if (chunk.gid != newGid) {
+          const bool h = (newGid & 0x80000000u) != 0;
+          const bool v = (newGid & 0x40000000u) != 0;
+          const bool d = (newGid & 0x20000000u) != 0;
 
-            const Tileset* ts = findTilesetForGid(newGid);
-            if (ts) {
-              chunk.gid = newGid;
+          const Tileset* ts = findTilesetForGid(newGid);
+          if (ts) {
+            chunk.gid = newGid;
 
-              const size_t vertCount = chunk.vertices.getVertexCount();
-              if (vertCount >= 6) {
-                const uint32_t cleared = clearFlipFlags(newGid);
-                const uint32_t localId =
-                    cleared - static_cast<uint32_t>(ts->firstGid);
-                sf::Vector2f uv[4];
-                int tw = 0, th = 0;
-                const sf::Texture* tex = nullptr;
+            const size_t vertCount = chunk.vertices.getVertexCount();
+            if (vertCount >= 6) {
+              const uint32_t cleared = clearFlipFlags(newGid);
+              const uint32_t localId =
+                  cleared - static_cast<uint32_t>(ts->firstGid);
+              sf::Vector2f uv[4];
+              int tw = 0, th = 0;
+              const sf::Texture* tex = nullptr;
 
-                if (!ts->imageCollection) {
-                  const int cols = ts->columns;
-                  if (cols > 0) {
-                    const int tu = static_cast<int>(localId % cols);
-                    const int tv = static_cast<int>(localId / cols);
-                    tw = ts->tileWidth;
-                    th = ts->tileHeight;
-                    const int margin = ts->margin, spacing = ts->spacing;
-                    const float left =
-                        static_cast<float>(margin + tu * (tw + spacing));
-                    const float top =
-                        static_cast<float>(margin + tv * (th + spacing));
-                    const float right = left + tw;
-                    const float bottom = top + th;
-                    uv[0] = {left, top};
-                    uv[1] = {right, top};
-                    uv[2] = {right, bottom};
-                    uv[3] = {left, bottom};
-                    tex = ts->texture.get();
-                  }
-                } else {
-                  auto it = ts->perTile.find(static_cast<int>(localId));
-                  if (it != ts->perTile.end()) {
-                    const auto& pt = it->second;
-                    tw = pt.width;
-                    th = pt.height;
-                    uv[0] = {0.f, 0.f};
-                    uv[1] = {static_cast<float>(tw), 0.f};
-                    uv[2] = {static_cast<float>(tw), static_cast<float>(th)};
-                    uv[3] = {0.f, static_cast<float>(th)};
-                    tex = pt.texture.get();
-                  }
+              if (!ts->imageCollection) {
+                const int cols = ts->columns;
+                if (cols > 0) {
+                  const int tu = static_cast<int>(localId % cols);
+                  const int tv = static_cast<int>(localId / cols);
+                  tw = ts->tileWidth;
+                  th = ts->tileHeight;
+                  const int margin = ts->margin, spacing = ts->spacing;
+                  const float left =
+                      static_cast<float>(margin + tu * (tw + spacing));
+                  const float top =
+                      static_cast<float>(margin + tv * (th + spacing));
+                  const float right = left + tw;
+                  const float bottom = top + th;
+                  uv[0] = {left, top};
+                  uv[1] = {right, top};
+                  uv[2] = {right, bottom};
+                  uv[3] = {left, bottom};
+                  tex = ts->texture.get();
                 }
+              } else {
+                auto it = ts->perTile.find(static_cast<int>(localId));
+                if (it != ts->perTile.end()) {
+                  const auto& pt = it->second;
+                  tw = pt.width;
+                  th = pt.height;
+                  uv[0] = {0.f, 0.f};
+                  uv[1] = {static_cast<float>(tw), 0.f};
+                  uv[2] = {static_cast<float>(tw), static_cast<float>(th)};
+                  uv[3] = {0.f, static_cast<float>(th)};
+                  tex = pt.texture.get();
+                }
+              }
 
-                if (tex) {
-                  chunk.texture = tex;
+              if (tex) {
+                chunk.texture = tex;
 
-                  WorldMap::applyFlipTexcoords(h, v, d, uv);
+                WorldMap::applyFlipTexcoords(h, v, d, uv);
 
-                  if (tw > 0 && th > 0) {
-                    chunk.vertices[0].texCoords = uv[0];
-                    chunk.vertices[1].texCoords = uv[1];
-                    chunk.vertices[2].texCoords = uv[2];
-                    chunk.vertices[3].texCoords = uv[0];
-                    chunk.vertices[4].texCoords = uv[2];
-                    chunk.vertices[5].texCoords = uv[3];
+                if (tw > 0 && th > 0) {
+                  chunk.vertices[0].texCoords = uv[0];
+                  chunk.vertices[1].texCoords = uv[1];
+                  chunk.vertices[2].texCoords = uv[2];
+                  chunk.vertices[3].texCoords = uv[0];
+                  chunk.vertices[4].texCoords = uv[2];
+                  chunk.vertices[5].texCoords = uv[3];
 
-                    thisChanged = true;
-                  }
+                  thisChanged = true;
                 }
               }
             }
           }
         }
+      }
 
-        if (thisChanged) {
-          changed = true;
-          if (outAffectedLayers)
-            outAffectedLayers->push_back(static_cast<int>(li));
-        }
+      if (thisChanged) {
+        changed = true;
+        markLayer(li);
       }
     }
+  }
 
-    if (hasPos) {
-      // Move chunks to new cell if position changed
-      std::vector<std::pair<LayerMesh::CellKey, LayerMesh::Chunk>> __pos_moves;
+  // Position moves: use index-only approach. Rebuild index first to ensure
+  // entries are current, then move chunks using exact keys from the index.
+  if (hasPos) {
+    // Rebuild index to ensure consistency before moving
+    buildObjectIndex();
+    auto itIdx = object_index_.find(objectId);
+    if (itIdx == object_index_.end()) {
+      throw std::runtime_error("Object index missing entries for objectId: " +
+                               std::to_string(objectId));
+    }
+
+    const float newX = props["pos"].value("x", 0.f);
+    const float newY = props["pos"].value("y", 0.f);
+
+    // Gather distinct layers from index
+    std::vector<int> layersToProcess;
+    for (const auto& p : itIdx->second) layersToProcess.push_back(p.first);
+    std::sort(layersToProcess.begin(), layersToProcess.end());
+    layersToProcess.erase(
+        std::unique(layersToProcess.begin(), layersToProcess.end()),
+        layersToProcess.end());
+
+    for (int li : layersToProcess) {
+      if (li < 0 || li >= static_cast<int>(layers_.size())) continue;
+      auto& meshRef = layers_[li];
+
+      // Remove existing chunks by exact keys from the index
       std::vector<std::pair<LayerMesh::CellKey, LayerMesh::Chunk>> __pos_moved;
-
-      const float newX = props["pos"].value("x", 0.f);
-      const float newY = props["pos"].value("y", 0.f);
-
-      for (auto& [key, bucket] : mesh.chunk_buckets) {
-        if (bucket.chunks.empty()) continue;
-        for (auto& chunk : bucket.chunks) {
-          if (static_cast<int>(chunk.id) == objectId) {
-            __pos_moved.push_back({key, chunk});
-            break;
-          }
-        }
-      }
-
-      for (auto& [oldKey, chunk] : __pos_moved) {
-        auto bit = mesh.chunk_buckets.find(oldKey);
-        if (bit == mesh.chunk_buckets.end()) continue;
+      for (const auto& p : itIdx->second) {
+        if (p.first != li) continue;
+        const LayerMesh::CellKey key = p.second;
+        auto bit = meshRef.chunk_buckets.find(key);
+        if (bit == meshRef.chunk_buckets.end()) continue;
         auto& bucket = bit->second;
-        auto cit = std::find_if(
-            bucket.chunks.begin(), bucket.chunks.end(),
-            [&](const LayerMesh::Chunk& c) { return c.id == chunk.id; });
+        auto cit = std::find_if(bucket.chunks.begin(), bucket.chunks.end(),
+                                [&](const LayerMesh::Chunk& c) {
+                                  return static_cast<int>(c.id) == objectId;
+                                });
         if (cit != bucket.chunks.end()) {
+          __pos_moved.push_back({key, *cit});
           bucket.chunks.erase(cit);
         }
       }
 
+      // Create moved chunks in new buckets and update index incrementally
+      std::vector<std::pair<LayerMesh::CellKey, LayerMesh::Chunk>> __pos_moves;
       for (auto& [oldKey, chunk] : __pos_moved) {
         if (chunk.visible == false) continue;
         bool visible = true;
         const sf::Vector2f pos{
-              newX, newY - static_cast<float>(chunk.vertices[5].position.y -
-                                              chunk.vertices[0].position.y)};
+            newX, newY - static_cast<float>(chunk.vertices[5].position.y -
+                                            chunk.vertices[0].position.y)};
 
         for (int dy = 0; dy < (chunk.vertices[5].position.y -
                                chunk.vertices[0].position.y) /
@@ -1017,9 +1073,17 @@ bool WorldMap::updateObject(int objectId, const nlohmann::json& props,
 
       if (!__pos_moves.empty()) {
         changed = true;
-        if (outAffectedLayers)
-          outAffectedLayers->push_back(static_cast<int>(li));
+        markLayer(li);
       }
+
+      // Erase old index entries for this layer before inserting new ones
+      object_index_[objectId].erase(
+          std::remove_if(object_index_[objectId].begin(),
+                         object_index_[objectId].end(),
+                         [&](const std::pair<int, LayerMesh::CellKey>& p) {
+                           return p.first == li;
+                         }),
+          object_index_[objectId].end());
 
       for (auto& [newKey, chunk] : __pos_moves) {
         const sf::Vector2f pos{
@@ -1037,15 +1101,13 @@ bool WorldMap::updateObject(int objectId, const nlohmann::json& props,
         chunk.vertices[4].position = {pos.x + tw, pos.y + th};
         chunk.vertices[5].position = {pos.x, pos.y + th};
 
-        mesh.chunk_buckets[newKey].chunks.push_back(chunk);
+        meshRef.chunk_buckets[newKey].chunks.push_back(chunk);
+        object_index_[objectId].push_back({li, newKey});
       }
 
-      __pos_moves.clear();
-      __pos_moved.clear();
+      // Rebuild draw order for this layer
+      rebuildObjectDrawOrderForLayer(li);
     }
-
-    // Rebuild object draw order for the layer
-    rebuildObjectDrawOrderForLayer(static_cast<int>(li));
   }
 
   // De-duplicate layer indices
