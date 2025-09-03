@@ -136,6 +136,10 @@ You can filter tests using Google Test flags, for example:
 - Combat and interaction mechanics
 - Quest and mission system
 
+## Screenshots
+
+<img width="796" height="597" alt="image" src="https://github.com/user-attachments/assets/37bce293-07aa-4524-8872-bf837a8b021c" />
+
 ## License
 
 See the `LICENSE` file in the project root for license details.
