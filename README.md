@@ -32,23 +32,34 @@ WildSpark is a 2D game client built with SFML and modern C++. This project imple
 - **Nakama SDK**: Backend authentication and multiplayer services
 - **GoogleTest 1.17.0**: Testing framework
 
-## Building the Project
+## Building and running
 
-The project uses CMake for build configuration:
+The project uses CMake for build configuration. From the repository root:
 
 ```bash
-# Create a build directory
-mkdir build && cd build
+# Create a build directory and configure
+mkdir -p build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Debug
 
-# Configure the project
-cmake ..
-
-# Build the project
-cmake --build .
+# Build the project (and tests)
+cmake --build . --config Debug -j
 
 # Run the game
 ./bin/wildspark_game
 ```
+
+Notes:
+- If you use a different generator or toolchain, adjust the `cmake` invocation accordingly.
+- For release builds use `-DCMAKE_BUILD_TYPE=Release`.
+
+Environment:
+- The game loads map files using a MAPS_DIR environment variable read via dotenv. Create a `.env` file in the project root with a line like:
+
+```text
+MAPS_DIR=/absolute/path/to/maps/
+```
+
+This lets the code locate map JSON and tileset assets when running locally.
 
 ## Game Flow
 
@@ -97,11 +108,24 @@ enum class TileType {
 
 ## Testing
 
-The project includes unit tests using GoogleTest framework. Run the tests with:
+Unit tests use Google Test and are built as part of the normal CMake build. From the project root:
 
 ```bash
 cd build
-ctest
+# Run the test target (build first if needed)
+cmake --build . --target run_tests -j
+
+# Run the test binary directly
+./bin/run_tests
+
+# Or use ctest to run discovered tests with output on failure
+ctest --output-on-failure
+```
+
+You can filter tests using Google Test flags, for example:
+
+```bash
+./bin/run_tests --gtest_filter=WorldMapUpdateObject.*
 ```
 
 ## Future Development
@@ -114,4 +138,4 @@ ctest
 
 ## License
 
-Read the [LICENSE](https://github.com/client/WildSpark/blob/main/LICENSE) file for details.
+See the `LICENSE` file in the project root for license details.
