@@ -5,6 +5,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <vector>
 
 #include "WorldMap.h"
 
@@ -40,6 +41,16 @@ class WorldRenderer : public sf::Drawable, public sf::Transformable {
   // Compute bounds for a vertex array (cached). Made public so callers
   // like WorldMap::getObjectIdAtPosition can reuse the same logic.
   sf::FloatRect boundsFor(const sf::VertexArray& va) const;
+
+  // Invalidate internal caches (bounds cache and optionally object draw orders).
+  // If rebuildObjectDrawOrder is true, the renderer will rebuild object_draw_order
+  // arrays for object layers by re-scanning map layers. This is useful after
+  // runtime mutations to map chunks.
+  void invalidateCache(bool rebuildObjectDrawOrder = false);
+
+  // Invalidate cache and rebuild object draw order only for the specified
+  // layer indices. This avoids re-scanning unaffected layers.
+  void invalidateCache(const std::vector<int>& affectedLayers);
 
  private:
   void draw(sf::RenderTarget& target, sf::RenderStates states) const override;

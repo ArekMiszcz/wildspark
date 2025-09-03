@@ -16,9 +16,10 @@
 
 #include <SFML/Graphics/Font.hpp>
 #include <SFML/System/Vector2.hpp>
+#include <nlohmann/json.hpp>
 
 class NakamaClient;  // Forward declaration
-class Networking;     // Forward declaration for listener reference
+class Networking;    // Forward declaration for listener reference
 
 class InternalRtListener : public Nakama::NRtClientListenerInterface {
  public:
@@ -30,8 +31,10 @@ class InternalRtListener : public Nakama::NRtClientListenerInterface {
   void onMatchData(const Nakama::NMatchData& data) override;
 
   void onChannelMessage(const Nakama::NChannelMessage& /*message*/) override {}
-  void onMatchmakerMatched(Nakama::NMatchmakerMatchedPtr /*matched*/) override {}
-  void onNotifications(const Nakama::NNotificationList& /*notifications*/) override {}
+  void onMatchmakerMatched(Nakama::NMatchmakerMatchedPtr /*matched*/) override {
+  }
+  void onNotifications(
+      const Nakama::NNotificationList& /*notifications*/) override {}
   void onStreamData(const Nakama::NStreamData& /*data*/) override {}
 
  private:
@@ -50,9 +53,11 @@ class Networking {
 
   bool initialize(Nakama::NSessionPtr sessionPtr);
 
-  void listMatches(std::function<void(const std::vector<Nakama::NMatch>&)> successCallback,
-                   std::function<void(const Nakama::NError&)> errorCallback);
-  void joinMatch(const std::string& matchId, std::function<void(bool)> callback);
+  void listMatches(
+      std::function<void(const std::vector<Nakama::NMatch>&)> successCallback,
+      std::function<void(const Nakama::NError&)> errorCallback);
+  void joinMatch(const std::string& matchId,
+                 std::function<void(bool)> callback);
   void tick();
 
   void setCurrentMatchId(const std::string& matchId);
@@ -61,15 +66,17 @@ class Networking {
 
   void completePendingMatchJoin();
 
-  void sendPlayerUpdate(const sf::Vector2f& direction, float speed, unsigned int sequenceNumber);
-  void sendPlayerAction(const int objectId, const std::string& action, unsigned int sequenceNumber);
+  void sendPlayerUpdate(const sf::Vector2f& direction, float speed,
+                        unsigned int sequenceNumber);
+  void sendPlayerAction(const int objectId, const std::string& action,
+                        unsigned int sequenceNumber);
 
-  using PlayerStateUpdateCallback = std::function<
-      void(const std::string& playerId, const sf::Vector2f& position, unsigned int lastProcessedSequence)>;
+  using PlayerStateUpdateCallback = std::function<void(
+      const std::string& playerId, const sf::Vector2f& position,
+      unsigned int lastProcessedSequence)>;
   void setPlayerStateUpdateCallback(PlayerStateUpdateCallback callback);
 
-  using InputAckCallback = std::function<
-      void(const std::string& playerId, unsigned int inputSequence, bool approved, const sf::Vector2f& serverPosition)>;
+  using InputAckCallback = std::function<void(const nlohmann::json& ack)>;
   void setInputAckCallback(InputAckCallback callback);
 
  private:
@@ -85,8 +92,9 @@ class Networking {
   PlayerStateUpdateCallback m_onPlayerStateUpdateCallback;
   InputAckCallback m_onInputAckCallback;
 
-  void connect_rt_client(std::function<void()> onSuccess = nullptr,
-                         std::function<void(const Nakama::NRtError&)> onError = nullptr);
+  void connect_rt_client(
+      std::function<void()> onSuccess = nullptr,
+      std::function<void(const Nakama::NRtError&)> onError = nullptr);
   void processPendingJoin();
 };
 

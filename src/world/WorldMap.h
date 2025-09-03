@@ -15,6 +15,10 @@ class WorldMap {
  public:
   explicit WorldMap(const std::string& mapJsonPath);
 
+  // Test-friendly default constructor (does not load JSON). Useful for unit
+  // tests which manually populate layers/tilesets.
+  WorldMap() = default;
+
   struct Tileset {
     struct PerTile {  // for collection-of-images
       int localId = 0;
@@ -91,6 +95,10 @@ class WorldMap {
       float opacity = 1.f;
       bool visible = true;
       float sortY = 0.f;  // for sorting within a cell
+      // Offset of this chunk relative to the owning object's top-left
+      // (in world units). This is set at load time so runtime object
+      // movements can preserve per-chunk layout.
+      sf::Vector2f offset{0.f, 0.f};
       Chunk() : vertices(sf::PrimitiveType::Triangles) {}
     };
     struct ChunkBucket {
@@ -150,6 +158,26 @@ class WorldMap {
 
   // Find which tileset a tile belongs to based on its GID
   const Tileset* findTilesetForGid(uint32_t gid) const;
+
+  // Runtime update API: update an object (by Tiled object id) using a
+  // flexible JSON payload from the server ACK. Supported keys include:
+  //  - "gid": number (raw GID, may contain flip flags)
+  //  - "visible": bool
+  //  - "opacity": number (0.0 - 1.0)
+  // The optional outAffectedLayers will be filled with indices of layers
+  // that were modified (de-duplicated). Returns true if any chunk was
+  // modified.
+  bool updateObject(int objectId, const nlohmann::json& props,
+                    std::vector<int>* outAffectedLayers = nullptr);
+
+  // Rebuild the object_draw_order for a single object layer. This updates
+  // the internal draw order pointers and is used by the renderer to only
+  // refresh affected layers after runtime mutations.
+  void rebuildObjectDrawOrderForLayer(int layerIndex);
+
+  // Test helper: give tests mutable access to layers to populate small maps
+  // without having to load JSON files from disk.
+  std::vector<LayerMesh>& layersMutable() { return layers_; }
 
  private:
   // loading

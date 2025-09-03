@@ -6,7 +6,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
-#include <limits>
+#include <iostream>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -573,7 +573,6 @@ void WorldMap::buildLayers(const json& j) {
       for (const auto& od : drawables) {
         // Create keys based on tile size
         bool visible = mesh.visible;
-        std::vector<LayerMesh::CellKey> keys;
         for (int dy = 0;
              dy <
              (od.tri[5].position.y - od.tri[0].position.y) / tileHeight_ + 1;
@@ -688,35 +687,76 @@ int WorldMap::getObjectIdAtPosition(const sf::Vector2f& worldPos) const {
         static_cast<int>(std::floor(worldPos.x / tileWidth_)),
         static_cast<int>(std::floor(worldPos.y / tileHeight_))};
 
+    std::cout << "getObjectIdAtPosition: worldPos=(" << worldPos.x << ","
+              << worldPos.y << ") tileW=" << tileWidth_
+              << " tileH=" << tileHeight_ << " key=(" << key.x << "," << key.y
+              << ")\n";
+
     auto bit = mesh.chunk_buckets.find(key);
 
     if (bit == mesh.chunk_buckets.end()) {
+      std::cout << "getObjectIdAtPosition: no bucket for key\n";
       continue;
     }
 
     const auto& bucket = bit->second;
+
+    std::cout << "getObjectIdAtPosition: found bucket with "
+              << bucket.chunks.size() << " chunks\n";
 
     if (bucket.chunks.empty()) {
       continue;
     }
 
     for (const auto& chunk : bucket.chunks) {
+      std::cout << "  chunk id=" << chunk.id << " gid=" << chunk.gid
+                << " vertCount=" << chunk.vertices.getVertexCount()
+                << " visible=" << chunk.visible << "\n";
+      if (chunk.vertices.getVertexCount() >= 1) {
+        std::cout << "    vertex0=(" << chunk.vertices[0].position.x << ","
+                  << chunk.vertices[0].position.y << ")\n";
+      }
+
       if (chunk.vertices.getVertexCount() < 6) {
         continue;
       }
 
       const sf::FloatRect bbox = chunk.vertices.getBounds();
+      float bx = 0.f, by = 0.f, bw = 0.f, bh = 0.f;
+      if (chunk.vertices.getVertexCount() >= 1) {
+        float minx = chunk.vertices[0].position.x;
+        float miny = chunk.vertices[0].position.y;
+        float maxx = minx;
+        float maxy = miny;
+        for (size_t vi = 1; vi < chunk.vertices.getVertexCount(); ++vi) {
+          const auto& p = chunk.vertices[vi].position;
+          if (p.x < minx) minx = p.x;
+          if (p.y < miny) miny = p.y;
+          if (p.x > maxx) maxx = p.x;
+          if (p.y > maxy) maxy = p.y;
+        }
+        bx = minx;
+        by = miny;
+        bw = maxx - minx;
+        bh = maxy - miny;
+      }
+      std::cout << "    bbox=(l=" << bx << ", t=" << by << ", w=" << bw
+                << ", h=" << bh << ")\n";
 
       if (bbox.contains(worldPos)) {
+        std::cout << "    worldPos inside bbox\n";
         const WorldMap::Tileset* tileset = findTilesetForGid(chunk.gid);
 
         if (!tileset) {
+          std::cout << "    no tileset for gid=" << chunk.gid << "\n";
           continue;
         }
 
         const int localId = chunk.gid - tileset->firstGid;
         if (tileset->objectGroups.find(localId) ==
             tileset->objectGroups.end()) {
+          std::cout << "    tileset has no object group for localId=" << localId
+                    << "\n";
           continue;
         }
 
@@ -735,7 +775,12 @@ int WorldMap::getObjectIdAtPosition(const sf::Vector2f& worldPos) const {
 
           polygon.setPosition(chunk.vertices[0].position);
 
+          std::cout << "    testing polygon at chunk origin ("
+                    << chunk.vertices[0].position.x << ","
+                    << chunk.vertices[0].position.y << ")\n";
+
           if (!polygon.getGlobalBounds().contains(worldPos)) {
+            std::cout << "    worldPos not in polygon bbox\n";
             continue;
           }
 
@@ -744,19 +789,23 @@ int WorldMap::getObjectIdAtPosition(const sf::Vector2f& worldPos) const {
             // Ray-casting algorithm
             bool inside = false;
             for (size_t i = 0, j = polygon.getPointCount() - 1;
-                  i < polygon.getPointCount(); j = i++) {
+                 i < polygon.getPointCount(); j = i++) {
               sf::Vector2f pi = polygon.getPoint(i) + polygon.getPosition();
               sf::Vector2f pj = polygon.getPoint(j) + polygon.getPosition();
               if (((pi.y > worldPos.y) != (pj.y > worldPos.y)) &&
                   (worldPos.x <
-                    (pj.x - pi.x) * (worldPos.y - pi.y) / (pj.y - pi.y) +
-                        pi.x)) {
+                   (pj.x - pi.x) * (worldPos.y - pi.y) / (pj.y - pi.y) +
+                       pi.x)) {
                 inside = !inside;
               }
             }
 
             if (inside) {
+              std::cout << "    point-in-polygon: inside -> returning id="
+                        << chunk.id << "\n";
               return static_cast<int>(chunk.id);
+            } else {
+              std::cout << "    point-in-polygon: not inside\n";
             }
           }
         }
@@ -765,4 +814,274 @@ int WorldMap::getObjectIdAtPosition(const sf::Vector2f& worldPos) const {
   }
 
   return -1;
+}
+
+bool WorldMap::updateObject(int objectId, const nlohmann::json& props,
+                            std::vector<int>* outAffectedLayers) {
+  bool changed = false;
+
+  if (outAffectedLayers) outAffectedLayers->clear();
+
+  // Supported props: gid (number), visible (bool), opacity (number)
+  const bool hasGid = props.contains("gid") && props["gid"].is_number();
+  const bool hasVisible =
+      props.contains("visible") && props["visible"].is_boolean();
+  const bool hasOpacity =
+      props.contains("opacity") &&
+      (props["opacity"].is_number() || props["opacity"].is_number_float());
+  const bool hasPos =
+      props.contains("pos") && props["pos"].is_object() &&
+      props["pos"].contains("x") && props["pos"].contains("y") &&
+      (props["pos"]["x"].is_number() || props["pos"]["x"].is_number_float()) &&
+      (props["pos"]["y"].is_number() || props["pos"]["y"].is_number_float());
+
+  uint32_t newGid = 0;
+  if (hasGid) newGid = props.value("gid", 0u);
+  bool newVisible = false;
+  float newOpacity = 1.0f;
+  if (hasVisible) newVisible = props.value("visible", true);
+  if (hasOpacity) newOpacity = props.value("opacity", 1.0f);
+
+  for (size_t li = 0; li < layers_.size(); ++li) {
+    auto& mesh = layers_[li];
+    if (mesh.type != "objectgroup") continue;
+
+    // Apply visible/opacity/gid updates to matching chunks first
+    for (auto& [key, bucket] : mesh.chunk_buckets) {
+      for (size_t ci = 0; ci < bucket.chunks.size(); ++ci) {
+        auto& chunk = bucket.chunks[ci];
+        if (static_cast<int>(chunk.id) != objectId) continue;
+
+        bool thisChanged = false;
+
+        if (hasVisible) {
+          if (chunk.visible != newVisible) {
+            chunk.visible = newVisible;
+            thisChanged = true;
+          }
+        }
+
+        if (hasOpacity) {
+          if (std::abs(chunk.opacity - newOpacity) > 1e-6f) {
+            chunk.opacity = newOpacity;
+            const std::uint8_t a =
+                static_cast<std::uint8_t>(255.f * chunk.opacity);
+            for (size_t vi = 0; vi < chunk.vertices.getVertexCount(); ++vi) {
+              chunk.vertices[vi].color.a = a;
+            }
+            thisChanged = true;
+          }
+        }
+
+        if (hasGid) {
+          if (chunk.gid != newGid) {
+            // Handle flip flags: preserve them when applying texcoords if any
+            const bool h = (newGid & 0x80000000u) != 0;
+            const bool v = (newGid & 0x40000000u) != 0;
+            const bool d = (newGid & 0x20000000u) != 0;
+
+            const Tileset* ts = findTilesetForGid(newGid);
+            if (ts) {
+              chunk.gid = newGid;
+
+              const size_t vertCount = chunk.vertices.getVertexCount();
+              if (vertCount >= 6) {
+                const uint32_t cleared = clearFlipFlags(newGid);
+                const uint32_t localId =
+                    cleared - static_cast<uint32_t>(ts->firstGid);
+                sf::Vector2f uv[4];
+                int tw = 0, th = 0;
+                const sf::Texture* tex = nullptr;
+
+                if (!ts->imageCollection) {
+                  const int cols = ts->columns;
+                  if (cols > 0) {
+                    const int tu = static_cast<int>(localId % cols);
+                    const int tv = static_cast<int>(localId / cols);
+                    tw = ts->tileWidth;
+                    th = ts->tileHeight;
+                    const int margin = ts->margin, spacing = ts->spacing;
+                    const float left =
+                        static_cast<float>(margin + tu * (tw + spacing));
+                    const float top =
+                        static_cast<float>(margin + tv * (th + spacing));
+                    const float right = left + tw;
+                    const float bottom = top + th;
+                    uv[0] = {left, top};
+                    uv[1] = {right, top};
+                    uv[2] = {right, bottom};
+                    uv[3] = {left, bottom};
+                    tex = ts->texture.get();
+                  }
+                } else {
+                  auto it = ts->perTile.find(static_cast<int>(localId));
+                  if (it != ts->perTile.end()) {
+                    const auto& pt = it->second;
+                    tw = pt.width;
+                    th = pt.height;
+                    uv[0] = {0.f, 0.f};
+                    uv[1] = {static_cast<float>(tw), 0.f};
+                    uv[2] = {static_cast<float>(tw), static_cast<float>(th)};
+                    uv[3] = {0.f, static_cast<float>(th)};
+                    tex = pt.texture.get();
+                  }
+                }
+
+                if (tex) {
+                  chunk.texture = tex;
+
+                  WorldMap::applyFlipTexcoords(h, v, d, uv);
+
+                  if (tw > 0 && th > 0) {
+                    chunk.vertices[0].texCoords = uv[0];
+                    chunk.vertices[1].texCoords = uv[1];
+                    chunk.vertices[2].texCoords = uv[2];
+                    chunk.vertices[3].texCoords = uv[0];
+                    chunk.vertices[4].texCoords = uv[2];
+                    chunk.vertices[5].texCoords = uv[3];
+
+                    thisChanged = true;
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        if (thisChanged) {
+          changed = true;
+          if (outAffectedLayers)
+            outAffectedLayers->push_back(static_cast<int>(li));
+        }
+      }
+    }
+
+    if (hasPos) {
+      // Move chunks to new cell if position changed
+      std::vector<std::pair<LayerMesh::CellKey, LayerMesh::Chunk>> __pos_moves;
+      std::vector<std::pair<LayerMesh::CellKey, LayerMesh::Chunk>> __pos_moved;
+
+      const float newX = props["pos"].value("x", 0.f);
+      const float newY = props["pos"].value("y", 0.f);
+
+      for (auto& [key, bucket] : mesh.chunk_buckets) {
+        if (bucket.chunks.empty()) continue;
+        for (auto& chunk : bucket.chunks) {
+          if (static_cast<int>(chunk.id) == objectId) {
+            __pos_moved.push_back({key, chunk});
+            break;
+          }
+        }
+      }
+
+      for (auto& [oldKey, chunk] : __pos_moved) {
+        auto bit = mesh.chunk_buckets.find(oldKey);
+        if (bit == mesh.chunk_buckets.end()) continue;
+        auto& bucket = bit->second;
+        auto cit = std::find_if(
+            bucket.chunks.begin(), bucket.chunks.end(),
+            [&](const LayerMesh::Chunk& c) { return c.id == chunk.id; });
+        if (cit != bucket.chunks.end()) {
+          bucket.chunks.erase(cit);
+        }
+      }
+
+      for (auto& [oldKey, chunk] : __pos_moved) {
+        if (chunk.visible == false) continue;
+        bool visible = true;
+        const sf::Vector2f pos{
+              newX, newY - static_cast<float>(chunk.vertices[5].position.y -
+                                              chunk.vertices[0].position.y)};
+
+        for (int dy = 0; dy < (chunk.vertices[5].position.y -
+                               chunk.vertices[0].position.y) /
+                                      tileHeight_ +
+                                  1;
+             ++dy) {
+          for (int dx = 0; dx < (chunk.vertices[1].position.x -
+                                 chunk.vertices[0].position.x) /
+                                        tileWidth_ +
+                                    1;
+               ++dx) {
+            LayerMesh::CellKey newKey{
+                static_cast<int>(
+                    std::floor((pos.x + dx * tileWidth_) / tileWidth_)),
+                static_cast<int>(
+                    std::floor((pos.y + dy * tileHeight_) / tileHeight_))};
+            chunk.visible = visible;
+            __pos_moves.push_back({newKey, chunk});
+            visible = false;
+          }
+        }
+      }
+
+      if (!__pos_moves.empty()) {
+        changed = true;
+        if (outAffectedLayers)
+          outAffectedLayers->push_back(static_cast<int>(li));
+      }
+
+      for (auto& [newKey, chunk] : __pos_moves) {
+        const sf::Vector2f pos{
+            newX, newY - static_cast<float>(chunk.vertices[5].position.y -
+                                            chunk.vertices[0].position.y)};
+        const int tw = static_cast<int>(chunk.vertices[1].position.x -
+                                        chunk.vertices[0].position.x);
+        const int th = static_cast<int>(chunk.vertices[5].position.y -
+                                        chunk.vertices[0].position.y);
+
+        chunk.vertices[0].position = pos;
+        chunk.vertices[1].position = {pos.x + tw, pos.y};
+        chunk.vertices[2].position = {pos.x + tw, pos.y + th};
+        chunk.vertices[3].position = pos;
+        chunk.vertices[4].position = {pos.x + tw, pos.y + th};
+        chunk.vertices[5].position = {pos.x, pos.y + th};
+
+        mesh.chunk_buckets[newKey].chunks.push_back(chunk);
+      }
+
+      __pos_moves.clear();
+      __pos_moved.clear();
+    }
+
+    // Rebuild object draw order for the layer
+    rebuildObjectDrawOrderForLayer(static_cast<int>(li));
+  }
+
+  // De-duplicate layer indices
+  if (outAffectedLayers) {
+    std::sort(outAffectedLayers->begin(), outAffectedLayers->end());
+    outAffectedLayers->erase(
+        std::unique(outAffectedLayers->begin(), outAffectedLayers->end()),
+        outAffectedLayers->end());
+  }
+
+  return changed;
+}
+
+void WorldMap::rebuildObjectDrawOrderForLayer(int layerIndex) {
+  if (layerIndex < 0 || layerIndex >= static_cast<int>(layers_.size())) return;
+  auto& layer = layers_[layerIndex];
+  if (layer.type != "objectgroup") return;
+
+  size_t totalChunks = 0;
+  for (const auto& kv : layer.chunk_buckets)
+    totalChunks += kv.second.chunks.size();
+  layer.object_draw_order.clear();
+  layer.object_draw_order.reserve(totalChunks);
+  for (auto& kv : layer.chunk_buckets) {
+    for (auto& c : kv.second.chunks) layer.object_draw_order.push_back(&c);
+  }
+  std::stable_sort(
+      layer.object_draw_order.begin(), layer.object_draw_order.end(),
+      [](const WorldMap::LayerMesh::Chunk* a,
+         const WorldMap::LayerMesh::Chunk* b) {
+        if (a->sortY != b->sortY) return a->sortY < b->sortY;
+        const float ax =
+            a->vertices.getVertexCount() ? a->vertices[0].position.x : 0.f;
+        const float bx =
+            b->vertices.getVertexCount() ? b->vertices[0].position.x : 0.f;
+        if (ax != bx) return ax < bx;
+        return a->id < b->id;
+      });
 }

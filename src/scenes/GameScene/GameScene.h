@@ -6,6 +6,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <nlohmann/json.hpp>
 
 #include <SFML/Graphics.hpp>
 
@@ -34,8 +35,7 @@ class GameScene : public Scene {
 
   void handlePlayerStateUpdate(const std::string& playerId, const sf::Vector2f& position,
                                unsigned int lastProcessedSequence);
-  void handleInputAck(const std::string& playerId, unsigned int inputSequence, bool approved,
-                      const sf::Vector2f& serverPosition);
+  void handleInputAck(const nlohmann::json& ack);
 
  private:
   sf::RenderWindow& windowRef;

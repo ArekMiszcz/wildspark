@@ -66,10 +66,8 @@ void GameScene::onEnter(SceneManager& sceneManager) {
         });
 
     m_networking->setInputAckCallback(
-        [this](const std::string& playerId, unsigned int inputSequence,
-               bool approved, const sf::Vector2f& serverPosition) {
-          this->handleInputAck(playerId, inputSequence, approved,
-                               serverPosition);
+        [this](const nlohmann::json& ack) {
+          this->handleInputAck(ack);
         });
 
   } else {
@@ -167,7 +165,7 @@ void GameScene::update(sf::Time deltaTime, SceneManager& manager) {
                   << m_localPlayer->getDirection().x << ", "
                   << m_localPlayer->getDirection().y << ")" << std::endl;
       }
-    } else if (m_inputManager.isActionActive("player_interact")) {
+    } else if (m_inputManager.isActionReleased("player_interact")) {
       sf::Vector2i mousePos = sf::Mouse::getPosition(windowRef);
       sf::Vector2f worldPos =
           windowRef.mapPixelToCoords(mousePos, m_camera.getView());
@@ -262,23 +260,61 @@ void GameScene::handlePlayerStateUpdate(const std::string& playerId,
   }
 }
 
-void GameScene::handleInputAck(const std::string& playerId,
-                               unsigned int inputSequence, bool approved,
-                               const sf::Vector2f& serverPosition) {
-  if (m_localPlayer && playerId == m_localPlayer->getId()) {
-    std::cout << "GameScene: Input ACK received for local player. ID: "
-              << playerId << ", Seq: " << inputSequence
-              << ", Approved: " << (approved ? "Yes" : "No") << ", ServerPos: ("
-              << serverPosition.x << ", " << serverPosition.y << ")"
-              << std::endl;
-    m_localPlayer->handleServerAck(inputSequence, approved, serverPosition);
-  } else if (m_localPlayer && playerId != m_localPlayer->getId()) {
-    // ACK for another player, usually not processed by other clients directly
-    // unless for specific game logic. std::cout << "GameScene: Received Input
-    // ACK for another player: " << playerId << std::endl;
-  } else if (!m_localPlayer) {
-    std::cerr
-        << "GameScene: Received Input ACK but local player is null. PlayerID: "
-        << playerId << std::endl;
+void GameScene::handleInputAck(const nlohmann::json& ack) {
+  try {
+    if (!ack.is_object()) return;
+    std::string type = ack.value("type", "");
+    nlohmann::json data = ack.value("data", nlohmann::json::object());
+
+    // debug log for data
+    for (auto& [key, value] : data.items()) {
+      std::cout << "ACK Data - " << key << ": " << value << std::endl;
+    }
+
+    // Common fields
+    std::string playerId = data.value("playerId", "");
+    unsigned int inputSequence = data.value("inputSequence", 0u);
+    bool approved = data.value("approved", false);
+
+    if (type == "input_ack" && data.contains("x") && data.contains("y")) {
+      float x = data.value("x", 0.0f);
+      float y = data.value("y", 0.0f);
+      sf::Vector2f serverPos(x, y);
+
+      if (m_localPlayer && playerId == m_localPlayer->getId()) {
+        std::cout << "GameScene: Input ACK (pos) for local player. ID: " << playerId
+                  << ", Seq: " << inputSequence << ", Approved: " << (approved ? "Yes" : "No")
+                  << ", ServerPos: (" << x << ", " << y << ")" << std::endl;
+        m_localPlayer->handleServerAck(inputSequence, approved, serverPos);
+      } else if (playerId.empty()) {
+        std::cerr << "GameScene: Received position ACK with empty playerId" << std::endl;
+      } else {
+        // ACK for another player: update other player's position or create them
+        handlePlayerStateUpdate(playerId, serverPos, inputSequence);
+      }
+    }
+
+    if (type == "object_update" && data.contains("objectId")) {
+      int objectId = data.value("objectId", -1);
+
+      std::cout << "GameScene: Received object update ACK. ObjectID: " << objectId << std::endl;
+
+      nlohmann::json objProps = nlohmann::json::object();
+      // Copy supported fields
+      if (data.contains("gid")) objProps["gid"] = data["gid"];
+      if (data.contains("visible")) objProps["visible"] = data["visible"];
+      if (data.contains("opacity")) objProps["opacity"] = data["opacity"];
+      if (data.contains("pos")) objProps["pos"] = data["pos"];
+
+      bool updated = m_worldMap.updateObject(objectId, objProps);
+      if (updated) {
+        // If the world changed, clear renderer caches and rebuild draw order
+        // for object layers so changes are visible immediately.
+        m_worldRenderer->invalidateCache(true);
+        std::cout << "GameScene: World updated for object " << objectId << ", renderer invalidated." << std::endl;
+      }
+    }
+  } catch (const std::exception& e) {
+    std::cerr << "GameScene::handleInputAck: Failed to process ACK JSON: " << e.what() << std::endl;
   }
 }

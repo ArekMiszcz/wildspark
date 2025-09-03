@@ -7,6 +7,7 @@
 #include <string>
 #include <unordered_set>
 #include <vector>
+#include <optional>
 
 #include <SFML/Graphics/ConvexShape.hpp>
 #include <SFML/Graphics/RectangleShape.hpp>
@@ -367,5 +368,29 @@ void WorldRenderer::drawDebugObjectAreas(
       rect.setOutlineThickness(1.0f);
       target.draw(rect, s);
     }
+  }
+}
+
+void WorldRenderer::invalidateCache(bool rebuildObjectDrawOrder) {
+  if (rebuildObjectDrawOrder) {
+    // Rebuild all layers
+    std::vector<int> allLayers;
+    for (int i = 0; i < static_cast<int>(const_cast<std::vector<WorldMap::LayerMesh>&>(map_.layers()).size()); ++i) {
+      allLayers.push_back(i);
+    }
+    invalidateCache(allLayers);
+    return;
+  }
+  // Just clear bounds cache
+  cache_.clear();
+}
+
+void WorldRenderer::invalidateCache(const std::vector<int>& affectedLayers) {
+  // Clear bounds cache
+  cache_.clear();
+
+  // Rebuild only affected object layers
+  for (int li : affectedLayers) {
+    const_cast<WorldMap&>(map_).rebuildObjectDrawOrderForLayer(li);
   }
 }
